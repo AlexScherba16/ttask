@@ -6,8 +6,8 @@ namespace helper = order_cache::helpers;
 OrderCache::OrderCache()
 {
     m_orders.reserve(ORDERS_MAP_CAPACITY);
+    m_userOrders.reserve(USER_ORDER_IDS_MAP_CAPACITY);
 }
-
 
 void OrderCache::addOrder(Order order)
 {
@@ -19,24 +19,67 @@ void OrderCache::addOrder(Order order)
     }
 
     const auto orderId{order.orderId()};
+    auto user{order.user()};
 
-    auto [orderIt, orderInserted] = m_orders.emplace(orderId, std::move(order));
+    auto [_, orderInserted] = m_orders.emplace(orderId, std::move(order));
     if (!orderInserted)
     {
         return;
     }
 
-    orderInserted = true;
+    {
+        auto userOrdersIt{m_userOrders.find(user)};
+        if (userOrdersIt == m_userOrders.end())
+        {
+            std::vector<OrderID> orderIds{orderId};
+            orderIds.reserve(ORDER_IDS_VECTOR_CAPACITY);
+            m_userOrders.emplace_hint(userOrdersIt, std::move(user), std::move(orderIds));
+        }
+        else
+        {
+            userOrdersIt->second.emplace_back(orderId);
+        }
+    }
 }
 
 void OrderCache::cancelOrder(const std::string& orderId)
 {
-    // Todo...
+    const auto orderIt{m_orders.find(orderId)};
+    if (orderIt == m_orders.end())
+    {
+        return;
+    }
+
+    auto user{orderIt->second.user()};
+    if (auto userOrdersIt{m_userOrders.find(user)}; userOrdersIt != m_userOrders.end())
+    {
+        auto& orderIds{userOrdersIt->second};
+        auto idIt{std::find(orderIds.begin(), orderIds.end(), orderId)};
+        if (idIt != orderIds.end())
+        {
+            std::swap(*idIt, orderIds.back());
+            orderIds.pop_back();
+        }
+
+        if (orderIds.empty())
+        {
+            m_userOrders.erase(userOrdersIt);
+        }
+    }
+
+    m_orders.erase(orderIt);
 }
 
 void OrderCache::cancelOrdersForUser(const std::string& user)
 {
-    // Todo...
+    if (auto userOrdersIt{m_userOrders.find(user)}; userOrdersIt != m_userOrders.end())
+    {
+        auto orderIds{userOrdersIt->second};
+        for (const auto& orderId : orderIds)
+        {
+            cancelOrder(orderId);
+        }
+    }
 }
 
 void OrderCache::cancelOrdersForSecIdWithMinimumQty(const std::string& securityId, unsigned int minQty)

@@ -172,7 +172,13 @@ private:
     static constexpr size_t ORDERS_MAP_CAPACITY{1'048'576};
     static constexpr size_t ORDERS_MAP_THRESHOLD{2'000'000};
 
+    static constexpr size_t USER_ORDER_IDS_MAP_CAPACITY{131'072};
+
+    static constexpr size_t ORDER_IDS_VECTOR_CAPACITY{1'024};
+
     using OrderID = std::string;
+    using User = std::string;
 
     std::unordered_map<OrderID, Order> m_orders;
+    std::unordered_map<User, std::vector<OrderID>> m_userOrders;
 };

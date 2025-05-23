@@ -195,15 +195,12 @@ private:
     {
         uint64_t totalBuy{0};
         uint64_t totalSell{0};
-        // std::vector<uint64_t> maxVolumesHeap; // 1024
-
-        std::multiset<uint64_t> maxVolumes;
-
+        std::vector<uint64_t> maxVolumesHeap;
         std::unordered_map<Company, CompanyOrderVolume> companyVolumes;
 
         SecuritySnapshot()
         {
-            // maxVolumesHeap.reserve(1024);
+            maxVolumesHeap.reserve(1024);
             companyVolumes.reserve(128);
         }
     };
@@ -248,10 +245,8 @@ private:
             compVol.sell += qty;
         }
 
-        snapshot.maxVolumes.emplace(compVol.buy + compVol.sell);
-
-        // snapshot.maxVolumesHeap.push_back(compVol.buy + compVol.sell);
-        // std::make_heap(snapshot.maxVolumesHeap.begin(), snapshot.maxVolumesHeap.end());
+        snapshot.maxVolumesHeap.push_back(compVol.buy + compVol.sell);
+        std::make_heap(snapshot.maxVolumesHeap.begin(), snapshot.maxVolumesHeap.end());
     }
 
     void _removeShapshot(const Order& order)
@@ -273,18 +268,16 @@ private:
             compVol.sell -= qty;
         }
 
-        snapshot.maxVolumes.erase(companyVolume);
+        if (snapshot.maxVolumesHeap.empty())
+        {
+            return;
+        }
 
-        // if (snapshot.maxVolumesHeap.empty())
-        // {
-        //     return;
-        // }
-        //
-        // snapshot.maxVolumesHeap.erase(
-        //     std::remove(snapshot.maxVolumesHeap.begin(), snapshot.maxVolumesHeap.end(), companyVolume),
-        //     snapshot.maxVolumesHeap.end());
-        //
-        // std::make_heap(snapshot.maxVolumesHeap.begin(), snapshot.maxVolumesHeap.end());
+        snapshot.maxVolumesHeap.erase(
+            std::remove(snapshot.maxVolumesHeap.begin(), snapshot.maxVolumesHeap.end(), companyVolume),
+            snapshot.maxVolumesHeap.end());
+
+        std::make_heap(snapshot.maxVolumesHeap.begin(), snapshot.maxVolumesHeap.end());
     }
 
     void _addOrderId(

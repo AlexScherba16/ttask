@@ -45,6 +45,9 @@ void OrderCache::cancelOrder(const std::string& orderId)
 
     const auto user{orderIt->second.user()};
     const auto securityId{orderIt->second.securityId()};
+    const auto company{orderIt->second.company()};
+    const auto side{orderIt->second.side()};
+    const auto qty{static_cast<uint64_t>(orderIt->second.qty())};
 
     _removeOrderId(m_userOrders, user, orderId);
     _removeOrderId(m_securityOrders, securityId, orderId);
@@ -98,9 +101,7 @@ unsigned int OrderCache::getMatchingSizeForSecurity(const std::string& securityI
             return 0;
         }
 
-        // const auto V{static_cast<int64_t>(snapshot.maxVolumesHeap.empty() ? 0 : snapshot.maxVolumesHeap.front())};
-        const auto V{static_cast<int64_t>(snapshot.maxVolumes.empty() ? 0 : *snapshot.maxVolumes.rbegin())};
-
+        const auto V{static_cast<int64_t>(snapshot.maxVolumesHeap.empty() ? 0 : snapshot.maxVolumesHeap.front())};
         const auto exBuy{std::max(static_cast<int64_t>(0), V - S)};
         const auto exSell{std::max(static_cast<int64_t>(0), V - B)};
 

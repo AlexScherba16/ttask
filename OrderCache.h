@@ -2,6 +2,14 @@
 
 #include <string>
 #include <vector>
+#include <optional>
+#include <string_view>
+#include <unordered_map>
+
+namespace order_cache::helpers
+{
+    class OrderValidator;
+}
 
 class Order
 {
@@ -40,7 +48,56 @@ private:
     unsigned int m_qty; // qty for this order
     std::string m_user; // user name who owns this order
     std::string m_company; // company for user
+
+    friend order_cache::helpers::OrderValidator;
 };
+
+namespace order_cache::helpers
+{
+    static constexpr auto BUY_SIDE = "Buy";
+    static constexpr auto SELL_SIDE = "Sell";
+
+    class OrderValidator final
+    {
+    public:
+        enum class OrderValidationError : uint32_t
+        {
+            EmptyOrderId = 0,
+            EmptySecurityId,
+            EmptyUser,
+            EmptyCompany,
+            InvalidSide,
+            ZeroQuantity,
+        };
+
+        [[nodiscard]] static std::optional<OrderValidationError> validateOrder(const Order& o) noexcept
+        {
+            if (o.m_orderId.empty()) return OrderValidationError::EmptyOrderId;
+            if (o.m_securityId.empty()) return OrderValidationError::EmptySecurityId;
+            if (o.m_user.empty()) return OrderValidationError::EmptyUser;
+            if (o.m_company.empty()) return OrderValidationError::EmptyCompany;
+            if (o.m_side != BUY_SIDE && o.m_side != SELL_SIDE) return OrderValidationError::InvalidSide;
+            if (o.m_qty == 0) return OrderValidationError::ZeroQuantity;
+
+            return std::nullopt;
+        }
+
+        [[nodiscard]] static std::string_view orderErrorToString(const OrderValidationError err) noexcept
+        {
+            switch (err)
+            {
+            case OrderValidationError::EmptyOrderId: return "Empty order ID";
+            case OrderValidationError::EmptySecurityId: return "Empty security ID";
+            case OrderValidationError::EmptyUser: return "Empty user";
+            case OrderValidationError::EmptyCompany: return "Empty company";
+            case OrderValidationError::InvalidSide: return "Invalid side";
+            case OrderValidationError::ZeroQuantity: return "Zero quantity";
+            default: return "Unknown error";
+            }
+        }
+    };
+}
+
 
 // Provide an implementation for the OrderCacheInterface interface class.
 // Your implementation class should hold all relevant data structures you think
@@ -48,6 +105,8 @@ private:
 class OrderCacheInterface
 {
 public:
+    virtual ~OrderCacheInterface() = default;
+
     // implement the 6 methods below, do not alter signatures
 
     // add order to the cache
@@ -69,10 +128,27 @@ public:
     virtual std::vector<Order> getAllOrders() const = 0;
 };
 
-// Todo: Your implementation of the OrderCache...
 class OrderCache : public OrderCacheInterface
 {
 public:
+    OrderCache();
+    OrderCache(const OrderCache&) = delete;
+    OrderCache(OrderCache&&) = delete;
+    OrderCache& operator=(const OrderCache&) = delete;
+    OrderCache& operator=(OrderCache&&) = delete;
+    ~OrderCache() override = default;
+
+    /**
+     * @brief Adds given order to cache storage.
+     *
+     * Validates and adds the order to the cache storage,
+     * If an order with the same ID already stored, it will be ignored.
+     *
+     * @param order Order object to be added.
+     * @return void
+     *
+     * @throw std::invalid_argument If order contains invalid fields.
+     */
     void addOrder(Order order) override;
 
     void cancelOrder(const std::string& orderId) override;
@@ -83,8 +159,20 @@ public:
 
     unsigned int getMatchingSizeForSecurity(const std::string& securityId) override;
 
+    /**
+     * @brief Retrieves all stored orders.
+     *
+     * Creates a vector of all orders currently stored in the cache.
+     *
+     * @return vector containing all stored orders.
+     */
     std::vector<Order> getAllOrders() const override;
 
 private:
-    // Todo...
+    static constexpr size_t ORDERS_MAP_CAPACITY{1'048'576};
+    static constexpr size_t ORDERS_MAP_THRESHOLD{2'000'000};
+
+    using OrderID = std::string;
+
+    std::unordered_map<OrderID, Order> m_orders;
 };

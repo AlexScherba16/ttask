@@ -425,6 +425,25 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyOrderId)
         // Do nothing
     }
 
+
+    // Verify expected exception type
+    ASSERT_THROW(cache.addOrder(orderWithEmptyId), std::invalid_argument);
+
+    // Same error string occurs several times
+    constexpr auto expectedError{"Invalid order : Empty order ID"};
+    for (int i = 0; i < 3; i++)
+    {
+        try
+        {
+            cache.addOrder(orderWithEmptyId);
+        }
+        catch (const std::invalid_argument& e)
+        {
+            std::string actualError{e.what()};
+            ASSERT_EQ(expectedError, actualError);
+        }
+    }
+
     // Verify that no order was added to the cache
     ASSERT_EQ(cache.getAllOrders().size(), 0);
 }

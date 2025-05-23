@@ -5,6 +5,7 @@
 #include <optional>
 #include <string_view>
 #include <unordered_map>
+#include <set>
 
 namespace order_cache::helpers
 {
@@ -172,33 +173,134 @@ private:
     static constexpr size_t ORDERS_MAP_CAPACITY{1'048'576};
     static constexpr size_t ORDERS_MAP_THRESHOLD{2'000'000};
 
-    static constexpr size_t USER_ORDER_IDS_MAP_CAPACITY{131'072};
-    static constexpr size_t SECURITY_ORDER_IDS_MAP_CAPACITY{131'072};
+    static constexpr size_t USER_ORDER_IDS_MAP_CAPACITY{2'048};
+    static constexpr size_t SECURITY_ORDER_IDS_MAP_CAPACITY{2'048};
+    static constexpr size_t SECURITY_SNAPSHOTS_MAP_CAPACITY{2'048};
 
     static constexpr size_t ORDER_IDS_VECTOR_CAPACITY{1'024};
 
     using OrderID = std::string;
     using User = std::string;
     using SecurityID = std::string;
+    using Company = std::string;
+    using Side = std::string;
+
+    struct CompanyOrderVolume
+    {
+        uint64_t buy{0};
+        uint64_t sell{0};
+    };
+
+    struct SecuritySnapshot
+    {
+        uint64_t totalBuy{0};
+        uint64_t totalSell{0};
+        // std::vector<uint64_t> maxVolumesHeap; // 1024
+
+        std::multiset<uint64_t> maxVolumes;
+
+        std::unordered_map<Company, CompanyOrderVolume> companyVolumes;
+
+        SecuritySnapshot()
+        {
+            // maxVolumesHeap.reserve(1024);
+            companyVolumes.reserve(128);
+        }
+    };
+
+    enum class SnapshotDirection : uint32_t
+    {
+        ADD_SNAPSHOT = 0,
+        REMOVE_SNAPSHOT,
+    };
+
 
     std::unordered_map<OrderID, Order> m_orders;
     std::unordered_map<User, std::vector<OrderID>> m_userOrders;
     std::unordered_map<SecurityID, std::vector<OrderID>> m_securityOrders;
+    std::unordered_map<SecurityID, SecuritySnapshot> m_securitySnapshots;
+
+    void _updateSecuritySnapshots(const Order& order, SnapshotDirection direction)
+    {
+        if (direction == SnapshotDirection::ADD_SNAPSHOT)
+        {
+            _addShapshot(order);
+        }
+        else
+        {
+            _removeShapshot(order);
+        }
+    }
+
+    void _addShapshot(const Order& order)
+    {
+        auto& snapshot = m_securitySnapshots[order.securityId()];
+        auto& compVol = snapshot.companyVolumes[order.company()];
+        const auto qty{order.qty()};
+        if (order.side() == order_cache::helpers::BUY_SIDE)
+        {
+            snapshot.totalBuy += qty;
+            compVol.buy += qty;
+        }
+        else
+        {
+            snapshot.totalSell += qty;
+            compVol.sell += qty;
+        }
+
+        snapshot.maxVolumes.emplace(compVol.buy + compVol.sell);
+
+        // snapshot.maxVolumesHeap.push_back(compVol.buy + compVol.sell);
+        // std::make_heap(snapshot.maxVolumesHeap.begin(), snapshot.maxVolumesHeap.end());
+    }
+
+    void _removeShapshot(const Order& order)
+    {
+        auto& snapshot = m_securitySnapshots[order.securityId()];
+        auto& compVol = snapshot.companyVolumes[order.company()];
+
+        const auto qty{order.qty()};
+        const auto companyVolume{compVol.buy + compVol.sell};
+
+        if (order.side() == order_cache::helpers::BUY_SIDE)
+        {
+            snapshot.totalBuy -= qty;
+            compVol.buy -= qty;
+        }
+        else
+        {
+            snapshot.totalSell -= qty;
+            compVol.sell -= qty;
+        }
+
+        snapshot.maxVolumes.erase(companyVolume);
+
+        // if (snapshot.maxVolumesHeap.empty())
+        // {
+        //     return;
+        // }
+        //
+        // snapshot.maxVolumesHeap.erase(
+        //     std::remove(snapshot.maxVolumesHeap.begin(), snapshot.maxVolumesHeap.end(), companyVolume),
+        //     snapshot.maxVolumesHeap.end());
+        //
+        // std::make_heap(snapshot.maxVolumesHeap.begin(), snapshot.maxVolumesHeap.end());
+    }
 
     void _addOrderId(
         std::unordered_map<std::string, std::vector<OrderID>>& map,
-        std::string key, std::string id)
+        const std::string& key, const std::string& id)
     {
         auto it{map.find(key)};
         if (it == map.end())
         {
-            std::vector<OrderID> orderIds{std::move(id)};
+            std::vector<OrderID> orderIds{id};
             orderIds.reserve(ORDER_IDS_VECTOR_CAPACITY);
-            map.emplace_hint(it, std::move(key), std::move(orderIds));
+            map.emplace_hint(it, key, orderIds);
         }
         else
         {
-            it->second.emplace_back(std::move(id));
+            it->second.emplace_back(id);
         }
     }
 

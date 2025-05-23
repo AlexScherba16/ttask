@@ -5,10 +5,17 @@
 #include <optional>
 #include <string_view>
 #include <unordered_map>
+#include <set>
 
-namespace order_cache::helpers
+namespace order_cache
 {
-    class OrderValidator;
+    static constexpr auto BUY_SIDE = "Buy";
+    static constexpr auto SELL_SIDE = "Sell";
+
+    namespace helpers
+    {
+        class OrderValidator;
+    }
 }
 
 class Order
@@ -54,9 +61,6 @@ private:
 
 namespace order_cache::helpers
 {
-    static constexpr auto BUY_SIDE = "Buy";
-    static constexpr auto SELL_SIDE = "Sell";
-
     class OrderValidator final
     {
     public:
@@ -170,35 +174,106 @@ public:
 
 private:
     static constexpr size_t ORDERS_MAP_CAPACITY{1'048'576};
-    static constexpr size_t ORDERS_MAP_THRESHOLD{2'000'000};
-
-    static constexpr size_t USER_ORDER_IDS_MAP_CAPACITY{131'072};
-    static constexpr size_t SECURITY_ORDER_IDS_MAP_CAPACITY{131'072};
-
+    static constexpr size_t USER_ORDER_IDS_MAP_CAPACITY{2'048};
+    static constexpr size_t SECURITY_ORDER_IDS_MAP_CAPACITY{2'048};
+    static constexpr size_t SECURITY_SNAPSHOTS_MAP_CAPACITY{2'048};
+    static constexpr size_t COMPANY_ORDER_VOLUMES_MAP_CAPACITY{128};
     static constexpr size_t ORDER_IDS_VECTOR_CAPACITY{1'024};
 
     using OrderID = std::string;
     using User = std::string;
     using SecurityID = std::string;
+    using Company = std::string;
+
+    struct CompanyOrderVolume
+    {
+        uint64_t buy{0};
+        uint64_t sell{0};
+    };
+
+    struct SecuritySnapshot
+    {
+        uint64_t totalBuy{0};
+        uint64_t totalSell{0};
+        std::multiset<uint64_t> maxVolumes;
+        std::unordered_map<Company, CompanyOrderVolume> companyVolumes;
+
+        SecuritySnapshot()
+        {
+            companyVolumes.reserve(COMPANY_ORDER_VOLUMES_MAP_CAPACITY);
+        }
+    };
+
+    enum class SecuritySnapshotAction : uint32_t
+    {
+        ADD_ORDER = 0,
+        REMOVE_ORDER,
+    };
+
 
     std::unordered_map<OrderID, Order> m_orders;
     std::unordered_map<User, std::vector<OrderID>> m_userOrders;
     std::unordered_map<SecurityID, std::vector<OrderID>> m_securityOrders;
+    std::unordered_map<SecurityID, SecuritySnapshot> m_securitySnapshots;
+
+    void _updateSecuritySnapshots(const Order& order, SecuritySnapshotAction action)
+    {
+        auto& snapshot{m_securitySnapshots[order.securityId()]};
+        if (action == SecuritySnapshotAction::ADD_ORDER)
+        {
+            _addOrderToSnapshot(order, snapshot);
+            return;
+        }
+        _removeOrderFromSnapshot(order, snapshot);
+    }
+
+    void _addOrderToSnapshot(const Order& order, SecuritySnapshot& snapshot)
+    {
+        auto& compVol = snapshot.companyVolumes[order.company()];
+
+        const auto qty{order.qty()};
+        const auto isBuy{order.side() == order_cache::BUY_SIDE};
+
+        auto& total{isBuy ? snapshot.totalBuy : snapshot.totalSell};
+        auto& volume{isBuy ? compVol.buy : compVol.sell};
+
+        total += qty;
+        volume += qty;
+
+        snapshot.maxVolumes.emplace(compVol.buy + compVol.sell);
+    }
+
+    void _removeOrderFromSnapshot(const Order& order, SecuritySnapshot& snapshot)
+    {
+        auto& compVol = snapshot.companyVolumes[order.company()];
+
+        const auto qty{order.qty()};
+        const auto isBuy{order.side() == order_cache::BUY_SIDE};
+        const auto removeCompanyVolume{compVol.buy + compVol.sell};
+
+        auto& total{isBuy ? snapshot.totalBuy : snapshot.totalSell};
+        auto& volume{isBuy ? compVol.buy : compVol.sell};
+
+        total -= qty;
+        volume -= qty;
+
+        snapshot.maxVolumes.erase(removeCompanyVolume);
+    }
 
     void _addOrderId(
         std::unordered_map<std::string, std::vector<OrderID>>& map,
-        std::string key, std::string id)
+        const std::string& key, const std::string& id)
     {
         auto it{map.find(key)};
         if (it == map.end())
         {
-            std::vector<OrderID> orderIds{std::move(id)};
+            std::vector<OrderID> orderIds{id};
             orderIds.reserve(ORDER_IDS_VECTOR_CAPACITY);
-            map.emplace_hint(it, std::move(key), std::move(orderIds));
+            map.emplace_hint(it, key, std::move(orderIds));
         }
         else
         {
-            it->second.emplace_back(std::move(id));
+            it->second.emplace_back(id);
         }
     }
 

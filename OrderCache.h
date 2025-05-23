@@ -173,12 +173,53 @@ private:
     static constexpr size_t ORDERS_MAP_THRESHOLD{2'000'000};
 
     static constexpr size_t USER_ORDER_IDS_MAP_CAPACITY{131'072};
+    static constexpr size_t SECURITY_ORDER_IDS_MAP_CAPACITY{131'072};
 
     static constexpr size_t ORDER_IDS_VECTOR_CAPACITY{1'024};
 
     using OrderID = std::string;
     using User = std::string;
+    using SecurityID = std::string;
 
     std::unordered_map<OrderID, Order> m_orders;
     std::unordered_map<User, std::vector<OrderID>> m_userOrders;
+    std::unordered_map<SecurityID, std::vector<OrderID>> m_securityOrders;
+
+    void _addOrderId(
+        std::unordered_map<std::string, std::vector<OrderID>>& map,
+        std::string key, std::string id)
+    {
+        auto it{map.find(key)};
+        if (it == map.end())
+        {
+            std::vector<OrderID> orderIds{std::move(id)};
+            orderIds.reserve(ORDER_IDS_VECTOR_CAPACITY);
+            map.emplace_hint(it, std::move(key), std::move(orderIds));
+        }
+        else
+        {
+            it->second.emplace_back(std::move(id));
+        }
+    }
+
+    void _removeOrderId(
+        std::unordered_map<std::string, std::vector<OrderID>>& map,
+        const std::string& key, const std::string& id)
+    {
+        if (auto mapIt{map.find(key)}; mapIt != map.end())
+        {
+            auto& orderIds{mapIt->second};
+            auto idIt{std::find(orderIds.begin(), orderIds.end(), id)};
+            if (idIt != orderIds.end())
+            {
+                std::swap(*idIt, orderIds.back());
+                orderIds.pop_back();
+            }
+
+            if (orderIds.empty())
+            {
+                map.erase(mapIt);
+            }
+        }
+    }
 };

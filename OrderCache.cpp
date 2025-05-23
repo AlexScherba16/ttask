@@ -7,6 +7,7 @@ OrderCache::OrderCache()
 {
     m_orders.reserve(ORDERS_MAP_CAPACITY);
     m_userOrders.reserve(USER_ORDER_IDS_MAP_CAPACITY);
+    m_securityOrders.reserve(SECURITY_ORDER_IDS_MAP_CAPACITY);
 }
 
 void OrderCache::addOrder(Order order)
@@ -20,6 +21,7 @@ void OrderCache::addOrder(Order order)
 
     const auto orderId{order.orderId()};
     auto user{order.user()};
+    auto securityId{order.securityId()};
 
     auto [_, orderInserted] = m_orders.emplace(orderId, std::move(order));
     if (!orderInserted)
@@ -27,19 +29,8 @@ void OrderCache::addOrder(Order order)
         return;
     }
 
-    {
-        auto userOrdersIt{m_userOrders.find(user)};
-        if (userOrdersIt == m_userOrders.end())
-        {
-            std::vector<OrderID> orderIds{orderId};
-            orderIds.reserve(ORDER_IDS_VECTOR_CAPACITY);
-            m_userOrders.emplace_hint(userOrdersIt, std::move(user), std::move(orderIds));
-        }
-        else
-        {
-            userOrdersIt->second.emplace_back(orderId);
-        }
-    }
+    _addOrderId(m_userOrders, std::move(user), orderId);
+    _addOrderId(m_securityOrders, std::move(securityId), orderId);
 }
 
 void OrderCache::cancelOrder(const std::string& orderId)
@@ -50,22 +41,11 @@ void OrderCache::cancelOrder(const std::string& orderId)
         return;
     }
 
-    auto user{orderIt->second.user()};
-    if (auto userOrdersIt{m_userOrders.find(user)}; userOrdersIt != m_userOrders.end())
-    {
-        auto& orderIds{userOrdersIt->second};
-        auto idIt{std::find(orderIds.begin(), orderIds.end(), orderId)};
-        if (idIt != orderIds.end())
-        {
-            std::swap(*idIt, orderIds.back());
-            orderIds.pop_back();
-        }
+    const auto user{orderIt->second.user()};
+    const auto securityId{orderIt->second.securityId()};
 
-        if (orderIds.empty())
-        {
-            m_userOrders.erase(userOrdersIt);
-        }
-    }
+    _removeOrderId(m_userOrders, user, orderId);
+    _removeOrderId(m_securityOrders, securityId, orderId);
 
     m_orders.erase(orderIt);
 }
@@ -84,7 +64,23 @@ void OrderCache::cancelOrdersForUser(const std::string& user)
 
 void OrderCache::cancelOrdersForSecIdWithMinimumQty(const std::string& securityId, unsigned int minQty)
 {
-    // Todo...
+    if (minQty == 0)
+    {
+        return;
+    }
+
+    if (auto securityOrdersIt{m_securityOrders.find(securityId)}; securityOrdersIt != m_securityOrders.end())
+    {
+        auto orderIds{securityOrdersIt->second};
+        for (const auto& orderId : orderIds)
+        {
+            auto orderIt{m_orders.find(orderId)};
+            if (orderIt != m_orders.end() && orderIt->second.qty() >= minQty)
+            {
+                cancelOrder(orderId);
+            }
+        }
+    }
 }
 
 unsigned int OrderCache::getMatchingSizeForSecurity(const std::string& securityId)

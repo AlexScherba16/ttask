@@ -1,11 +1,12 @@
 #pragma once
 
+#include <set>
 #include <string>
 #include <vector>
+#include <cstdint>
 #include <optional>
 #include <string_view>
 #include <unordered_map>
-#include <set>
 
 namespace order_cache
 {
@@ -142,17 +143,6 @@ public:
     OrderCache& operator=(OrderCache&&) = delete;
     ~OrderCache() override = default;
 
-    /**
-     * @brief Adds given order to cache storage.
-     *
-     * Validates and adds the order to the cache storage,
-     * If an order with the same ID already stored, it will be ignored.
-     *
-     * @param order Order object to be added.
-     * @return void
-     *
-     * @throw std::invalid_argument If order contains invalid fields.
-     */
     void addOrder(Order order) override;
 
     void cancelOrder(const std::string& orderId) override;
@@ -163,13 +153,6 @@ public:
 
     unsigned int getMatchingSizeForSecurity(const std::string& securityId) override;
 
-    /**
-     * @brief Retrieves all stored orders.
-     *
-     * Creates a vector of all orders currently stored in the cache.
-     *
-     * @return vector containing all stored orders.
-     */
     std::vector<Order> getAllOrders() const override;
 
 private:
@@ -216,85 +199,16 @@ private:
     std::unordered_map<SecurityID, std::vector<OrderID>> m_securityOrders;
     std::unordered_map<SecurityID, SecuritySnapshot> m_securitySnapshots;
 
-    void _updateSecuritySnapshots(const Order& order, SecuritySnapshotAction action)
-    {
-        auto& snapshot{m_securitySnapshots[order.securityId()]};
-        if (action == SecuritySnapshotAction::ADD_ORDER)
-        {
-            _addOrderToSnapshot(order, snapshot);
-            return;
-        }
-        _removeOrderFromSnapshot(order, snapshot);
-    }
+    void _updateSecuritySnapshots(const Order& order, SecuritySnapshotAction action);
 
-    void _addOrderToSnapshot(const Order& order, SecuritySnapshot& snapshot)
-    {
-        auto& compVol = snapshot.companyVolumes[order.company()];
+    static inline void _addOrderToSnapshot(const Order& order, SecuritySnapshot& snapshot);
+    static inline void _removeOrderFromSnapshot(const Order& order, SecuritySnapshot& snapshot);
 
-        const auto qty{order.qty()};
-        const auto isBuy{order.side() == order_cache::BUY_SIDE};
-
-        auto& total{isBuy ? snapshot.totalBuy : snapshot.totalSell};
-        auto& volume{isBuy ? compVol.buy : compVol.sell};
-
-        total += qty;
-        volume += qty;
-
-        snapshot.maxVolumes.emplace(compVol.buy + compVol.sell);
-    }
-
-    void _removeOrderFromSnapshot(const Order& order, SecuritySnapshot& snapshot)
-    {
-        auto& compVol = snapshot.companyVolumes[order.company()];
-
-        const auto qty{order.qty()};
-        const auto isBuy{order.side() == order_cache::BUY_SIDE};
-        const auto removeCompanyVolume{compVol.buy + compVol.sell};
-
-        auto& total{isBuy ? snapshot.totalBuy : snapshot.totalSell};
-        auto& volume{isBuy ? compVol.buy : compVol.sell};
-
-        total -= qty;
-        volume -= qty;
-
-        snapshot.maxVolumes.erase(removeCompanyVolume);
-    }
-
-    void _addOrderId(
+    static inline void _addOrderId(
         std::unordered_map<std::string, std::vector<OrderID>>& map,
-        const std::string& key, const std::string& id)
-    {
-        auto it{map.find(key)};
-        if (it == map.end())
-        {
-            std::vector<OrderID> orderIds{id};
-            orderIds.reserve(ORDER_IDS_VECTOR_CAPACITY);
-            map.emplace_hint(it, key, std::move(orderIds));
-        }
-        else
-        {
-            it->second.emplace_back(id);
-        }
-    }
+        const std::string& key, const std::string& id);
 
-    void _removeOrderId(
+    static inline void _removeOrderId(
         std::unordered_map<std::string, std::vector<OrderID>>& map,
-        const std::string& key, const std::string& id)
-    {
-        if (auto mapIt{map.find(key)}; mapIt != map.end())
-        {
-            auto& orderIds{mapIt->second};
-            auto idIt{std::find(orderIds.begin(), orderIds.end(), id)};
-            if (idIt != orderIds.end())
-            {
-                std::swap(*idIt, orderIds.back());
-                orderIds.pop_back();
-            }
-
-            if (orderIds.empty())
-            {
-                map.erase(mapIt);
-            }
-        }
-    }
+        const std::string& key, const std::string& id);
 };

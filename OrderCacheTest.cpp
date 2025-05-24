@@ -325,6 +325,43 @@ TEST_F(OrderCacheTest, MatchingSize_OneToMany_MatchesMultipleSellers)
     ASSERT_EQ(matchingSize, 3000); // 2000 from Order 2 and 1000 from Order 3 should match with Order 1
 }
 
+TEST_F(OrderCacheTest, MatchingSize__REMOVE_LEADER)
+{
+    CHECK_GLOBAL_FAILURE_FLAG();
+
+    cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 6'000, "User1", "Company1"});
+    cache.addOrder(Order{"OrdId2", "SecId1", "Buy", 1'500, "User2", "Company2"});
+    cache.addOrder(Order{"OrdId3", "SecId1", "Sell", 2'000, "User3", "Company3"});
+
+    unsigned int matchingSize = cache.getMatchingSizeForSecurity("SecId1");
+    ASSERT_EQ(matchingSize, 2000);
+
+    cache.cancelOrder("OrdId1");
+
+    matchingSize = cache.getMatchingSizeForSecurity("SecId1");
+    ASSERT_EQ(matchingSize, 1500);
+}
+
+
+TEST_F(OrderCacheTest, MatchingSize_AddOrders_Remove_Medium_Order_Than_REMOVE_LEADER_TTTTT)
+{
+    CHECK_GLOBAL_FAILURE_FLAG();
+
+    cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 1'000, "User1", "Company1"});
+    cache.addOrder(Order{"OrdId2", "SecId1", "Buy", 10'000, "User2", "Company2"});
+    cache.addOrder(Order{"OrdId3", "SecId1", "Sell", 5'000, "User3", "Company3"});
+    cache.addOrder(Order{"OrdId4", "SecId1", "Sell", 2'000, "User3", "Company4"});
+
+    ASSERT_EQ(cache.getMatchingSizeForSecurity("SecId1"), 7000);
+
+    cache.cancelOrder("OrdId3");
+    ASSERT_EQ(cache.getMatchingSizeForSecurity("SecId1"), 2000);
+
+    cache.cancelOrder("OrdId2"); // remove leader
+    ASSERT_EQ(cache.getMatchingSizeForSecurity("SecId1"), 1000);
+}
+
+
 // MatchingSize: Matching complex order combinations
 TEST_F(OrderCacheTest, MatchingSize_ComplexCombinations_MatchesCorrectly)
 {

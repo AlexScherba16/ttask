@@ -1,5 +1,7 @@
 #include "OrderCache.h"
+
 #include <sstream>
+#include <algorithm>
 
 namespace helper = order_cache::helpers;
 
@@ -123,4 +125,84 @@ std::vector<Order> OrderCache::getAllOrders() const
         orders.emplace_back(idOrderPair.second);
     }
     return orders;
+}
+
+void OrderCache::_updateSecuritySnapshots(const Order& order, SecuritySnapshotAction action)
+{
+    auto& snapshot{m_securitySnapshots[order.securityId()]};
+    if (action == SecuritySnapshotAction::ADD_ORDER)
+    {
+        _addOrderToSnapshot(order, snapshot);
+        return;
+    }
+    _removeOrderFromSnapshot(order, snapshot);
+}
+
+void OrderCache::_addOrderToSnapshot(const Order& order, SecuritySnapshot& snapshot)
+{
+    auto& compVol = snapshot.companyVolumes[order.company()];
+
+    const auto qty{order.qty()};
+    const auto isBuy{order.side() == order_cache::BUY_SIDE};
+
+    auto& total{isBuy ? snapshot.totalBuy : snapshot.totalSell};
+    auto& volume{isBuy ? compVol.buy : compVol.sell};
+
+    total += qty;
+    volume += qty;
+
+    snapshot.maxVolumes.emplace(compVol.buy + compVol.sell);
+}
+
+void OrderCache::_removeOrderFromSnapshot(const Order& order, SecuritySnapshot& snapshot)
+{
+    auto& compVol = snapshot.companyVolumes[order.company()];
+
+    const auto qty{order.qty()};
+    const auto isBuy{order.side() == order_cache::BUY_SIDE};
+    const auto removeCompanyVolume{compVol.buy + compVol.sell};
+
+    auto& total{isBuy ? snapshot.totalBuy : snapshot.totalSell};
+    auto& volume{isBuy ? compVol.buy : compVol.sell};
+
+    total -= qty;
+    volume -= qty;
+
+    snapshot.maxVolumes.erase(removeCompanyVolume);
+}
+
+void OrderCache::_addOrderId(std::unordered_map<std::string, std::vector<OrderID>>& map, const std::string& key,
+                             const std::string& id)
+{
+    auto it{map.find(key)};
+    if (it == map.end())
+    {
+        std::vector<OrderID> orderIds{id};
+        orderIds.reserve(ORDER_IDS_VECTOR_CAPACITY);
+        map.emplace_hint(it, key, std::move(orderIds));
+    }
+    else
+    {
+        it->second.emplace_back(id);
+    }
+}
+
+void OrderCache::_removeOrderId(std::unordered_map<std::string, std::vector<OrderID>>& map, const std::string& key,
+                                const std::string& id)
+{
+    if (auto mapIt{map.find(key)}; mapIt != map.end())
+    {
+        auto& orderIds{mapIt->second};
+        auto idIt{std::find(orderIds.begin(), orderIds.end(), id)};
+        if (idIt != orderIds.end())
+        {
+            std::swap(*idIt, orderIds.back());
+            orderIds.pop_back();
+        }
+
+        if (orderIds.empty())
+        {
+            map.erase(mapIt);
+        }
+    }
 }

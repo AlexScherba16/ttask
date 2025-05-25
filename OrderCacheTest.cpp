@@ -325,7 +325,7 @@ TEST_F(OrderCacheTest, MatchingSize_OneToMany_MatchesMultipleSellers)
     ASSERT_EQ(matchingSize, 3000); // 2000 from Order 2 and 1000 from Order 3 should match with Order 1
 }
 
-TEST_F(OrderCacheTest, MatchingSize__REMOVE_LEADER)
+TEST_F(OrderCacheTest, MatchingSize_RemoveLeaderCompany_MY)
 {
     CHECK_GLOBAL_FAILURE_FLAG();
 
@@ -343,7 +343,7 @@ TEST_F(OrderCacheTest, MatchingSize__REMOVE_LEADER)
 }
 
 
-TEST_F(OrderCacheTest, MatchingSize_AddOrders_Remove_Medium_Order_Than_REMOVE_LEADER_TTTTT)
+TEST_F(OrderCacheTest, MatchingSize_AddOrders_RemoveMediumCompany_Than_RemoveLeaderCompany_MY)
 {
     CHECK_GLOBAL_FAILURE_FLAG();
 

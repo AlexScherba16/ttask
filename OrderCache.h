@@ -1,9 +1,11 @@
 #pragma once
 
+#include <charconv>
 #include <set>
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <sstream>
 #include <optional>
 #include <string_view>
 #include <unordered_map>
@@ -12,6 +14,7 @@ namespace order_cache
 {
     static constexpr auto BUY_SIDE = "Buy";
     static constexpr auto SELL_SIDE = "Sell";
+    static constexpr std::string_view ORDER_ID_PREFIX = "OrdId";
 
     namespace helpers
     {
@@ -47,6 +50,9 @@ public:
     std::string company() const { return m_company; }
     unsigned int qty() const { return m_qty; }
 
+    // avoid redundant string copies
+    [[nodiscard]] std::string_view orderIdSv() const { return m_orderId; }
+
 private:
     // use the below to hold the order data
     // do not remove the these member variables
@@ -68,6 +74,7 @@ namespace order_cache::helpers
         enum class OrderValidationError : uint32_t
         {
             EmptyOrderId = 0,
+            InvalidOrderIdFormat,
             EmptySecurityId,
             EmptyUser,
             EmptyCompany,
@@ -77,21 +84,31 @@ namespace order_cache::helpers
 
         [[nodiscard]] static std::optional<OrderValidationError> validateOrder(const Order& o) noexcept
         {
-            if (o.m_orderId.empty()) return OrderValidationError::EmptyOrderId;
-            if (o.m_securityId.empty()) return OrderValidationError::EmptySecurityId;
-            if (o.m_user.empty()) return OrderValidationError::EmptyUser;
-            if (o.m_company.empty()) return OrderValidationError::EmptyCompany;
-            if (o.m_side != BUY_SIDE && o.m_side != SELL_SIDE) return OrderValidationError::InvalidSide;
-            if (o.m_qty == 0) return OrderValidationError::ZeroQuantity;
+            if (o.m_orderId.empty()) { return OrderValidationError::EmptyOrderId; }
+            if (auto err{_validateOrderIdFormat(o.orderIdSv())}; err != std::nullopt)
+            {
+                return err.value();
+            }
+            if (o.m_securityId.empty()) { return OrderValidationError::EmptySecurityId; }
+            if (o.m_user.empty()) { return OrderValidationError::EmptyUser; }
+            if (o.m_company.empty()) { return OrderValidationError::EmptyCompany; }
+            if (o.m_side != BUY_SIDE && o.m_side != SELL_SIDE) { return OrderValidationError::InvalidSide; }
+            if (o.m_qty == 0) { return OrderValidationError::ZeroQuantity; }
 
             return std::nullopt;
         }
 
-        [[nodiscard]] static std::string_view orderErrorToString(const OrderValidationError err) noexcept
+        [[nodiscard]] static std::string orderErrorToString(const OrderValidationError err) noexcept
         {
             switch (err)
             {
             case OrderValidationError::EmptyOrderId: return "Empty order ID";
+            case OrderValidationError::InvalidOrderIdFormat:
+                {
+                    std::stringstream message;
+                    message << "Expected order ID format \"" << ORDER_ID_PREFIX << 123 << "\"";
+                    return message.str();
+                }
             case OrderValidationError::EmptySecurityId: return "Empty security ID";
             case OrderValidationError::EmptyUser: return "Empty user";
             case OrderValidationError::EmptyCompany: return "Empty company";
@@ -100,6 +117,96 @@ namespace order_cache::helpers
             default: return "Unknown error";
             }
         }
+
+    private:
+        [[nodiscard]] static std::optional<OrderValidationError> _validateOrderIdFormat(std::string_view id)
+        {
+            {
+                const auto pos{id.find(ORDER_ID_PREFIX)};
+                if (pos != 0 || pos == std::string::npos)
+                {
+                    return OrderValidationError::InvalidOrderIdFormat;
+                }
+            }
+
+            for (size_t i = ORDER_ID_PREFIX.size(); i < id.size(); ++i)
+            {
+                if (!std::isdigit(id[i]))
+                {
+                    return OrderValidationError::InvalidOrderIdFormat;
+                }
+            }
+
+            return std::nullopt;
+        }
+    };
+
+
+    class OrderLinearStorage final
+    {
+    public:
+        OrderLinearStorage(const size_t minSize) { m_orders.resize(minSize); }
+        OrderLinearStorage(OrderLinearStorage&&) = delete;
+        OrderLinearStorage& operator=(OrderLinearStorage&&) = delete;
+        OrderLinearStorage(const OrderLinearStorage&) = delete;
+        OrderLinearStorage& operator=(const OrderLinearStorage&) = delete;
+
+        enum class OrderStorageError : uint32_t
+        {
+            FailedToParseOrderIdValue = 0,
+            OrderAlreadyStored,
+            NoOrder,
+        };
+
+        void addOrder(Order&& order, const uint64_t index)
+        {
+            if (index > m_orders.size() - 1)
+            {
+                m_orders.resize(index + 1);
+            }
+            m_orders[index].order = std::move(order);
+            m_indexes.emplace(index);
+        };
+
+        [[nodiscard]] bool hasOrder(const uint64_t index) const
+        {
+            return m_indexes.find(index) != m_indexes.end();
+        }
+
+        [[nodiscard]] const Order& getOrder(const uint64_t index) const
+        {
+            return m_orders[index].order;
+        }
+
+        void cancelOrder(const uint64_t index)
+        {
+            if (const auto indexIt{m_indexes.find(index)}; indexIt != m_indexes.end())
+            {
+                m_indexes.erase(indexIt);
+            }
+        }
+
+        [[nodiscard]] std::vector<Order> getAllOrders() const
+        {
+            if (m_indexes.empty()) { return {}; }
+
+            std::vector<Order> result;
+            result.reserve(m_indexes.size());
+            for (const auto& index : m_indexes)
+            {
+                result.push_back(m_orders[index].order);
+            }
+            return result;
+        }
+
+    private:
+        struct StoredOrder
+        {
+            Order order{"", "", "", 0, "", ""};
+        };
+
+        std::vector<StoredOrder> m_orders;
+        std::set<uint64_t> m_indexes;
     };
 }
 
@@ -156,7 +263,7 @@ public:
     std::vector<Order> getAllOrders() const override;
 
 private:
-    static constexpr size_t ORDERS_MAP_CAPACITY{1'048'576};
+    static constexpr size_t ORDERS_STORAGE_CAPACITY{1'048'576};
     static constexpr size_t USER_ORDER_IDS_MAP_CAPACITY{2'048};
     static constexpr size_t SECURITY_ORDER_IDS_MAP_CAPACITY{2'048};
     static constexpr size_t SECURITY_SNAPSHOTS_MAP_CAPACITY{2'048};
@@ -194,10 +301,13 @@ private:
     };
 
 
-    std::unordered_map<OrderID, Order> m_orders;
+    order_cache::helpers::OrderLinearStorage m_storage;
     std::unordered_map<User, std::vector<OrderID>> m_userOrders;
     std::unordered_map<SecurityID, std::vector<OrderID>> m_securityOrders;
     std::unordered_map<SecurityID, SecuritySnapshot> m_securitySnapshots;
+
+
+    [[nodiscard]] std::optional<uint64_t> _idToStorageIndex(std::string_view id);
 
     void _updateSecuritySnapshots(const Order& order, SecuritySnapshotAction action);
 

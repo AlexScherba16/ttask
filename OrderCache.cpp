@@ -1,13 +1,12 @@
 #include "OrderCache.h"
 
-#include <sstream>
 #include <algorithm>
 
-namespace helper = order_cache::helpers;
+namespace Helper = order_cache::helpers;
+using Storage = order_cache::helpers::OrderLinearStorage;
 
-OrderCache::OrderCache()
+OrderCache::OrderCache() : m_storage(ORDERS_STORAGE_CAPACITY)
 {
-    m_orders.reserve(ORDERS_MAP_CAPACITY);
     m_userOrders.reserve(USER_ORDER_IDS_MAP_CAPACITY);
     m_securityOrders.reserve(SECURITY_ORDER_IDS_MAP_CAPACITY);
     m_securitySnapshots.reserve(SECURITY_SNAPSHOTS_MAP_CAPACITY);
@@ -15,44 +14,58 @@ OrderCache::OrderCache()
 
 void OrderCache::addOrder(Order order)
 {
-    if (auto err{helper::OrderValidator::validateOrder(order)})
+    if (auto err{Helper::OrderValidator::validateOrder(order)})
     {
         std::stringstream message;
-        message << "Invalid order : " << helper::OrderValidator::orderErrorToString(err.value());
+        message << "Invalid order : " << Helper::OrderValidator::orderErrorToString(err.value());
         throw std::invalid_argument(message.str());
+    }
+
+    const auto idValue{_idToStorageIndex(order.orderIdSv())};
+    if (!idValue.has_value())
+    {
+        throw std::invalid_argument("Failed to parse order ID value : " + order.orderId());
+    }
+
+    if (m_storage.hasOrder(idValue.value()))
+    {
+        return;
     }
 
     const auto orderId{order.orderId()};
     const auto user{order.user()};
     const auto securityId{order.securityId()};
-
-    const auto [orderIt, orderInserted] = m_orders.emplace(orderId, std::move(order));
-    if (!orderInserted)
-    {
-        return;
-    }
+    const auto index{idValue.value()};
 
     _addOrderId(m_userOrders, user, orderId);
     _addOrderId(m_securityOrders, securityId, orderId);
-    _updateSecuritySnapshots(orderIt->second, SecuritySnapshotAction::ADD_ORDER);
+    _updateSecuritySnapshots(order, SecuritySnapshotAction::ADD_ORDER);
+    m_storage.addOrder(std::move(order), index);
 }
 
 void OrderCache::cancelOrder(const std::string& orderId)
 {
-    const auto orderIt{m_orders.find(orderId)};
-    if (orderIt == m_orders.end())
+    const auto idValue{_idToStorageIndex(orderId)};
+    if (!idValue.has_value())
+    {
+        throw std::invalid_argument("Failed to parse order ID value due cancellation : " + orderId);
+    }
+    const auto index{idValue.value()};
+
+    if (!m_storage.hasOrder(index))
     {
         return;
     }
 
-    const auto user{orderIt->second.user()};
-    const auto securityId{orderIt->second.securityId()};
+    const auto& order{m_storage.getOrder(index)};
+    const auto user{order.user()};
+    const auto securityId{order.securityId()};
 
     _removeOrderId(m_userOrders, user, orderId);
     _removeOrderId(m_securityOrders, securityId, orderId);
-    _updateSecuritySnapshots(orderIt->second, SecuritySnapshotAction::REMOVE_ORDER);
+    _updateSecuritySnapshots(order, SecuritySnapshotAction::REMOVE_ORDER);
 
-    m_orders.erase(orderIt);
+    m_storage.cancelOrder(index);
 }
 
 void OrderCache::cancelOrdersForUser(const std::string& user)
@@ -74,16 +87,31 @@ void OrderCache::cancelOrdersForSecIdWithMinimumQty(const std::string& securityI
         return;
     }
 
-    if (auto securityOrdersIt{m_securityOrders.find(securityId)}; securityOrdersIt != m_securityOrders.end())
+    auto securityOrdersIt{m_securityOrders.find(securityId)};
+    if (securityOrdersIt == m_securityOrders.end())
     {
-        auto orderIds{securityOrdersIt->second};
-        for (const auto& orderId : orderIds)
+        return;
+    }
+
+    auto orderIds{securityOrdersIt->second};
+    for (const auto& orderId : orderIds)
+    {
+        const auto idValue{_idToStorageIndex(orderId)};
+        if (!idValue.has_value())
         {
-            auto orderIt{m_orders.find(orderId)};
-            if (orderIt != m_orders.end() && orderIt->second.qty() >= minQty)
-            {
-                cancelOrder(orderId);
-            }
+            throw std::invalid_argument("Failed to parse order ID value due cancellation for security : " + orderId);
+        }
+
+        const auto index{idValue.value()};
+        if (!m_storage.hasOrder(index))
+        {
+            continue;
+        }
+
+        const auto& order{m_storage.getOrder(index)};
+        if (order.qty() >= minQty)
+        {
+            cancelOrder(orderId);
         }
     }
 }
@@ -113,18 +141,47 @@ unsigned int OrderCache::getMatchingSizeForSecurity(const std::string& securityI
 
 std::vector<Order> OrderCache::getAllOrders() const
 {
-    if (m_orders.empty())
-    {
-        return {};
-    }
+    return m_storage.getAllOrders();
+}
 
-    std::vector<Order> orders;
-    orders.reserve(m_orders.size());
-    for (const auto& idOrderPair : m_orders)
-    {
-        orders.emplace_back(idOrderPair.second);
-    }
-    return orders;
+std::optional<uint64_t> OrderCache::_idToStorageIndex(std::string_view id)
+{
+    // if (id.size() <= order_cache::ORDER_ID_PREFIX.size())
+    //     return std::nullopt;
+    //
+    // const auto from{id.data() + order_cache::ORDER_ID_PREFIX.size()};
+    // const auto to{id.data() + id.size()};
+    // uint64_t result{0};
+    // auto [_, ec] = std::from_chars(from, to, result);
+    // if (ec != std::errc{})
+    // {
+    //     return std::nullopt;
+    // }
+    // return result;
+
+    constexpr auto prefix = order_cache::ORDER_ID_PREFIX;
+    constexpr std::size_t prefixLen = prefix.size();
+
+    // 1. длина
+    if (id.size() <= prefixLen)
+        return std::nullopt;
+
+    // 2. префикс
+    if (id.compare(0, prefixLen, prefix) != 0)
+        return std::nullopt;
+
+    // 3. числовая часть
+    std::string_view numPart = id.substr(prefixLen);
+    uint64_t value = 0;
+
+    auto [ptr, ec] = std::from_chars(numPart.data(),
+                                     numPart.data() + numPart.size(),
+                                     value);
+    // полностью ли разобрали и нет ли ошибки
+    if (ec != std::errc{} || ptr != numPart.data() + numPart.size())
+        return std::nullopt;
+
+    return value;
 }
 
 void OrderCache::_updateSecuritySnapshots(const Order& order, SecuritySnapshotAction action)

@@ -485,6 +485,70 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyOrderId)
     ASSERT_EQ(cache.getAllOrders().size(), 0);
 }
 
+
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_InvalidOrderIdPrefixes_MY)
+{
+    CHECK_GLOBAL_FAILURE_FLAG();
+    std::vector<Order> invalidPrefixOrders
+    {
+        Order{"  OrdId", "", "", 0, "", ""},
+        Order{"ordid123", "", "", 0, "", ""},
+        Order{"ORDID123", "", "", 0, "", ""},
+        Order{"OrdId12A3", "", "", 0, "", ""},
+        Order{"OrdId 123", "", "", 0, "", ""},
+        Order{"OrdIdx123", "", "", 0, "", ""},
+        Order{"OrdId-123", "", "", 0, "", ""},
+        Order{"OrdId123a", "", "", 0, "", ""},
+        Order{"OrdId#123", "", "", 0, "", ""},
+        Order{"Ord Id123", "", "", 0, "", ""},
+        Order{"OrdId123 ", "", "", 0, "", ""},
+        Order{" OrdId123", "", "", 0, "", ""},
+        Order{"OrdId12.3", "", "", 0, "", ""},
+        Order{"OrdId+123", "", "", 0, "", ""},
+    };
+
+    constexpr auto expectedError{"Invalid order : Expected order ID format \"OrdId123\""};
+    for (const auto& order : invalidPrefixOrders)
+    {
+        ASSERT_THROW(cache.addOrder(order), std::invalid_argument);
+
+        try
+        {
+            cache.addOrder(order);
+        }
+        catch (const std::invalid_argument& e)
+        {
+            std::string actualError{e.what()};
+            ASSERT_EQ(expectedError, actualError);
+        }
+    }
+
+    // Verify that no order was added to the cache
+    ASSERT_EQ(cache.getAllOrders().size(), 0);
+}
+
+
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_ValidOrderIdPrefixes_MY)
+{
+    CHECK_GLOBAL_FAILURE_FLAG();
+
+
+    std::vector<Order> validPrefixOrders
+    {
+        Order{"OrdId5", "S", "Buy", 123, "U", "C"},
+        Order{"OrdId123", "S", "Buy", 123, "U", "C"},
+        Order{"OrdId000001", "S", "Buy", 123, "U", "C"},
+        Order{"OrdId9999999", "S", "Buy", 123, "U", "C"},
+    };
+
+    for (const auto& order : validPrefixOrders)
+    {
+        ASSERT_NO_THROW(cache.addOrder(order));
+    }
+
+    ASSERT_EQ(cache.getAllOrders().size(), validPrefixOrders.size());
+}
+
 // EdgeCases: Test that adding an order with an empty security ID
 TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptySecurityId)
 {
@@ -1207,6 +1271,12 @@ TEST_F(OrderCacheTest, Performance_VeryLargeDataset_1MOrders)
 
     unsigned int NUM_ORDERS = 1000000;
     std::vector<Order> orders = generateOrders(NUM_ORDERS);
+
+
+    auto first{orders.front()};
+    auto last{orders.back()};
+
+
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add orders to the cache

@@ -12,9 +12,12 @@ using namespace std::chrono_literals;
 std::atomic<bool> test_failed{false};
 
 // Custom GTest event listener to set the flag on failure
-class FailureListener : public ::testing::EmptyTestEventListener {
-    void OnTestPartResult(const ::testing::TestPartResult& result) override {
-        if (result.failed()) {
+class FailureListener : public ::testing::EmptyTestEventListener
+{
+    void OnTestPartResult(const ::testing::TestPartResult& result) override
+    {
+        if (result.failed())
+        {
             test_failed = true;
         }
     }
@@ -27,7 +30,8 @@ class FailureListener : public ::testing::EmptyTestEventListener {
         return; \
     }
 
-class OrderCacheTest : public ::testing::Test {
+class OrderCacheTest : public ::testing::Test
+{
 protected:
     OrderCache cache;
     std::vector<std::string> users;
@@ -35,7 +39,7 @@ protected:
     std::vector<std::string> companies;
     std::vector<std::string> sides{"Buy", "Sell"};
     std::mt19937 gen;
-    static double benchmark_time;  // Static variable to store the benchmark time
+    static double benchmark_time; // Static variable to store the benchmark time
 
     // Constants for the test
     static constexpr unsigned int NUM_USERS = 1000;
@@ -52,15 +56,19 @@ protected:
     const char* RESET_COLOR = "\033[0m";
 
     // Set up the test environment
-    void SetUp() override {
+    void SetUp() override
+    {
         // Populating users, companies, and securities
-        for (int i = 0; i < NUM_USERS; i++) {
+        for (int i = 0; i < NUM_USERS; i++)
+        {
             users.push_back("User" + std::to_string(i));
         }
-        for (int i = 0; i < NUM_COMPANIES; i++) {
+        for (int i = 0; i < NUM_COMPANIES; i++)
+        {
             companies.push_back("Comp" + std::to_string(i));
         }
-        for (int i = 0; i < NUM_SECURITIES; i++) {
+        for (int i = 0; i < NUM_SECURITIES; i++)
+        {
             secIds.push_back("SecId" + std::to_string(i));
         }
         // Using a fixed seed for reproducibility
@@ -68,7 +76,8 @@ protected:
         gen = std::mt19937(seed);
     }
 
-    std::vector<Order> generateOrders(unsigned int numOrders) {
+    std::vector<Order> generateOrders(unsigned int numOrders)
+    {
         std::vector<Order> orders;
         std::uniform_int_distribution<int> usersDist(0, users.size() - 1);
         std::uniform_int_distribution<int> companiesDist(0, companies.size() - 1);
@@ -76,7 +85,8 @@ protected:
         std::uniform_int_distribution<int> sidesDist(0, sides.size() - 1);
         std::uniform_int_distribution<int> qtyDist(1, 50);
 
-        for (int i = 0; i < numOrders; i++) {
+        for (int i = 0; i < numOrders; i++)
+        {
             const auto& user = users[usersDist(gen)];
             const auto& company = companies[companiesDist(gen)];
             const auto& secId = secIds[secIdsDist(gen)];
@@ -89,7 +99,8 @@ protected:
         return orders;
     }
 
-    static void SetUpTestCase() {
+    static void SetUpTestCase()
+    {
         const char* BLUE_COLOR = "\033[34m";
         const char* RESET_COLOR = "\033[0m";
         const char* TEST_VERSION = "1.4";
@@ -105,7 +116,8 @@ protected:
         std::cout << BLUE_COLOR << "[     INFO ] 1 NCU = " << benchmark_time << "ms" << RESET_COLOR << std::endl;
     }
 
-    static int fibRecursive(int n) {
+    static int fibRecursive(int n)
+    {
         if (n <= 1) return n;
         return fibRecursive(n - 1) + fibRecursive(n - 2);
     }
@@ -114,16 +126,18 @@ protected:
 double OrderCacheTest::benchmark_time = 0; // Initialize static benchmark_time
 
 // Do not use Boost C++ Library
-TEST_F(OrderCacheTest, ThirdParty_Dependencies_BoostNotUsed) {
-    #ifdef BOOST_VERSION
+TEST_F(OrderCacheTest, ThirdParty_Dependencies_BoostNotUsed)
+{
+#ifdef BOOST_VERSION
         FAIL() << "Boost is not allowed to be used.";
-    #else
-        SUCCEED();
-    #endif
+#else
+    SUCCEED();
+#endif
 }
 
 // BasicOperations: Add order
-TEST_F(OrderCacheTest, BasicOperations_AddOrder_AddOrderWithoutException) {
+TEST_F(OrderCacheTest, BasicOperations_AddOrder_AddOrderWithoutException)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add buy order
@@ -140,7 +154,8 @@ TEST_F(OrderCacheTest, BasicOperations_AddOrder_AddOrderWithoutException) {
 }
 
 // BasicOperations: Get all orders
-TEST_F(OrderCacheTest, BasicOperations_GetAllOrders_ReturnsCorrectNumberOfOrders) {
+TEST_F(OrderCacheTest, BasicOperations_GetAllOrders_ReturnsCorrectNumberOfOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 1000, "User1", "CompanyA"});
@@ -156,14 +171,15 @@ TEST_F(OrderCacheTest, BasicOperations_GetAllOrders_ReturnsCorrectNumberOfOrders
 }
 
 // BasicOperations: Cancel a specific order
-TEST_F(OrderCacheTest, BasicOperations_CancelOrder_RemovesSpecificOrderById) {
+TEST_F(OrderCacheTest, BasicOperations_CancelOrder_RemovesSpecificOrderById)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 100, "User1", "Company1"});
     std::vector<Order> allOrders = cache.getAllOrders();
     ASSERT_EQ(allOrders.size(), 1);
 
-      // Cancel specific order
+    // Cancel specific order
     cache.cancelOrder("OrdId1");
 
     // Assuming getAllOrders() returns all current orders, the size should be 0 for an empty cache.
@@ -172,7 +188,8 @@ TEST_F(OrderCacheTest, BasicOperations_CancelOrder_RemovesSpecificOrderById) {
 }
 
 // BasicOperations: Cancel all orders for a specific user
-TEST_F(OrderCacheTest, BasicOperations_CancelOrdersForUser_RemovesAllUserOrders) {
+TEST_F(OrderCacheTest, BasicOperations_CancelOrdersForUser_RemovesAllUserOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 200, "User1", "Company1"});
@@ -189,7 +206,8 @@ TEST_F(OrderCacheTest, BasicOperations_CancelOrdersForUser_RemovesAllUserOrders)
 }
 
 // BasicOperations: Cancel all orders for a security with minimum quantity
-TEST_F(OrderCacheTest, BasicOperations_CancelOrdersWithMinimumQty_RemovesQualifyingOrders) {
+TEST_F(OrderCacheTest, BasicOperations_CancelOrdersWithMinimumQty_RemovesQualifyingOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 200, "User1", "Company1"});
@@ -211,17 +229,18 @@ TEST_F(OrderCacheTest, BasicOperations_CancelOrdersWithMinimumQty_RemovesQualify
 }
 
 // MatchingSize: First example from README.txt
-TEST_F(OrderCacheTest, MatchingSize_ReadmeExample1_MatchesCorrectly) {
+TEST_F(OrderCacheTest, MatchingSize_ReadmeExample1_MatchesCorrectly)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add orders exactly as in README example 1
-    cache.addOrder(Order{"OrdId1", "SecId1", "Buy",  1000, "User1", "CompanyA"});
+    cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 1000, "User1", "CompanyA"});
     cache.addOrder(Order{"OrdId2", "SecId2", "Sell", 3000, "User2", "CompanyB"});
-    cache.addOrder(Order{"OrdId3", "SecId1", "Sell",  500, "User3", "CompanyA"});
-    cache.addOrder(Order{"OrdId4", "SecId2", "Buy",   600, "User4", "CompanyC"});
-    cache.addOrder(Order{"OrdId5", "SecId2", "Buy",   100, "User5", "CompanyB"});
-    cache.addOrder(Order{"OrdId6", "SecId3", "Buy",  1000, "User6", "CompanyD"});
-    cache.addOrder(Order{"OrdId7", "SecId2", "Buy",  2000, "User7", "CompanyE"});
+    cache.addOrder(Order{"OrdId3", "SecId1", "Sell", 500, "User3", "CompanyA"});
+    cache.addOrder(Order{"OrdId4", "SecId2", "Buy", 600, "User4", "CompanyC"});
+    cache.addOrder(Order{"OrdId5", "SecId2", "Buy", 100, "User5", "CompanyB"});
+    cache.addOrder(Order{"OrdId6", "SecId3", "Buy", 1000, "User6", "CompanyD"});
+    cache.addOrder(Order{"OrdId7", "SecId2", "Buy", 2000, "User7", "CompanyE"});
     cache.addOrder(Order{"OrdId8", "SecId2", "Sell", 5000, "User8", "CompanyE"});
 
     // Test for SecId1: should have no matches because both orders are from CompanyA
@@ -238,7 +257,8 @@ TEST_F(OrderCacheTest, MatchingSize_ReadmeExample1_MatchesCorrectly) {
 }
 
 // MatchingSize: Second example from README.txt
-TEST_F(OrderCacheTest, MatchingSize_ReadmeExample2_MatchesCorrectly) {
+TEST_F(OrderCacheTest, MatchingSize_ReadmeExample2_MatchesCorrectly)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Sell", 100, "User10", "Company2"});
@@ -266,7 +286,8 @@ TEST_F(OrderCacheTest, MatchingSize_ReadmeExample2_MatchesCorrectly) {
 }
 
 // MatchingSize: Third example from README.txt
-TEST_F(OrderCacheTest, MatchingSize_ReadmeExample3_MatchesCorrectly) {
+TEST_F(OrderCacheTest, MatchingSize_ReadmeExample3_MatchesCorrectly)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId3", "Sell", 100, "User1", "Company1"});
@@ -292,7 +313,8 @@ TEST_F(OrderCacheTest, MatchingSize_ReadmeExample3_MatchesCorrectly) {
 }
 
 // MatchingSize: Matching orders with different quantities
-TEST_F(OrderCacheTest, MatchingSize_OneToMany_MatchesMultipleSellers) {
+TEST_F(OrderCacheTest, MatchingSize_OneToMany_MatchesMultipleSellers)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 5000, "User1", "Company1"});
@@ -303,8 +325,46 @@ TEST_F(OrderCacheTest, MatchingSize_OneToMany_MatchesMultipleSellers) {
     ASSERT_EQ(matchingSize, 3000); // 2000 from Order 2 and 1000 from Order 3 should match with Order 1
 }
 
+TEST_F(OrderCacheTest, MatchingSize_RemoveLeaderCompany_MY)
+{
+    CHECK_GLOBAL_FAILURE_FLAG();
+
+    cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 6'000, "User1", "Company1"});
+    cache.addOrder(Order{"OrdId2", "SecId1", "Buy", 1'500, "User2", "Company2"});
+    cache.addOrder(Order{"OrdId3", "SecId1", "Sell", 2'000, "User3", "Company3"});
+
+    unsigned int matchingSize = cache.getMatchingSizeForSecurity("SecId1");
+    ASSERT_EQ(matchingSize, 2000);
+
+    cache.cancelOrder("OrdId1");
+
+    matchingSize = cache.getMatchingSizeForSecurity("SecId1");
+    ASSERT_EQ(matchingSize, 1500);
+}
+
+
+TEST_F(OrderCacheTest, MatchingSize_AddOrders_RemoveMediumCompany_Than_RemoveLeaderCompany_MY)
+{
+    CHECK_GLOBAL_FAILURE_FLAG();
+
+    cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 1'000, "User1", "Company1"});
+    cache.addOrder(Order{"OrdId2", "SecId1", "Buy", 10'000, "User2", "Company2"});
+    cache.addOrder(Order{"OrdId3", "SecId1", "Sell", 5'000, "User3", "Company3"});
+    cache.addOrder(Order{"OrdId4", "SecId1", "Sell", 2'000, "User3", "Company4"});
+
+    ASSERT_EQ(cache.getMatchingSizeForSecurity("SecId1"), 7000);
+
+    cache.cancelOrder("OrdId3");
+    ASSERT_EQ(cache.getMatchingSizeForSecurity("SecId1"), 2000);
+
+    cache.cancelOrder("OrdId2"); // remove leader
+    ASSERT_EQ(cache.getMatchingSizeForSecurity("SecId1"), 1000);
+}
+
+
 // MatchingSize: Matching complex order combinations
-TEST_F(OrderCacheTest, MatchingSize_ComplexCombinations_MatchesCorrectly) {
+TEST_F(OrderCacheTest, MatchingSize_ComplexCombinations_MatchesCorrectly)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId2", "Buy", 7000, "User1", "Company1"});
@@ -319,11 +379,12 @@ TEST_F(OrderCacheTest, MatchingSize_ComplexCombinations_MatchesCorrectly) {
 }
 
 // MatchingSize: Orders from the same company should not match
-TEST_F(OrderCacheTest, MatchingSize_SameCompany_DoesNotMatch) {
+TEST_F(OrderCacheTest, MatchingSize_SameCompany_DoesNotMatch)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId3", "Buy", 2000, "User1", "Company1"});
-     // Adding an order with the same company
+    // Adding an order with the same company
     cache.addOrder(Order{"OrdId2", "SecId3", "Sell", 2000, "User2", "Company1"});
 
     unsigned int matchingSize = cache.getMatchingSizeForSecurity("SecId3");
@@ -332,7 +393,8 @@ TEST_F(OrderCacheTest, MatchingSize_SameCompany_DoesNotMatch) {
 }
 
 // MatchingSize: Multiple small orders matching a larger order
-TEST_F(OrderCacheTest, MatchingSize_LargeBuyer_MatchesWithMultipleSmallSellers) {
+TEST_F(OrderCacheTest, MatchingSize_LargeBuyer_MatchesWithMultipleSmallSellers)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 10000, "User1", "CompanyA"});
@@ -347,7 +409,8 @@ TEST_F(OrderCacheTest, MatchingSize_LargeBuyer_MatchesWithMultipleSmallSellers) 
 }
 
 // MatchingSize: Multiple matching combinations
-TEST_F(OrderCacheTest, MatchingSize_ManyToMany_MatchesBidirectionally) {
+TEST_F(OrderCacheTest, MatchingSize_ManyToMany_MatchesBidirectionally)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId2", "Buy", 6000, "User1", "CompanyA"});
@@ -362,7 +425,8 @@ TEST_F(OrderCacheTest, MatchingSize_ManyToMany_MatchesBidirectionally) {
 }
 
 // MatchingSize: Matching size when only buy orders are present should be zero.
-TEST_F(OrderCacheTest, MatchingSize_OnlyBuyOrders_ReturnsZero) {
+TEST_F(OrderCacheTest, MatchingSize_OnlyBuyOrders_ReturnsZero)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 100, "User1", "Company1"});
@@ -371,7 +435,8 @@ TEST_F(OrderCacheTest, MatchingSize_OnlyBuyOrders_ReturnsZero) {
 }
 
 // MatchingSize: Matching size when only sell orders are present should be zero.
-TEST_F(OrderCacheTest, MatchingSize_OnlySellOrders_ReturnsZero) {
+TEST_F(OrderCacheTest, MatchingSize_OnlySellOrders_ReturnsZero)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Sell", 150, "User1", "Company1"});
@@ -380,35 +445,126 @@ TEST_F(OrderCacheTest, MatchingSize_OnlySellOrders_ReturnsZero) {
 }
 
 // EdgeCases: Test that adding an order with an empty order ID
-TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyOrderId) {
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyOrderId)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Create an order with an empty order ID
     Order orderWithEmptyId{"", "SecId1", "Buy", 500, "User1", "Company1"};
 
     // Attempt to add the order
-    try {
-      cache.addOrder(orderWithEmptyId);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.addOrder(orderWithEmptyId);
+    }
+    catch (...)
+    {
+        // Do nothing
+    }
+
+
+    // Verify expected exception type
+    ASSERT_THROW(cache.addOrder(orderWithEmptyId), std::invalid_argument);
+
+    // Same error string occurs several times
+    constexpr auto expectedError{"Invalid order : Empty order ID"};
+    for (int i = 0; i < 3; i++)
+    {
+        try
+        {
+            cache.addOrder(orderWithEmptyId);
+        }
+        catch (const std::invalid_argument& e)
+        {
+            std::string actualError{e.what()};
+            ASSERT_EQ(expectedError, actualError);
+        }
     }
 
     // Verify that no order was added to the cache
     ASSERT_EQ(cache.getAllOrders().size(), 0);
 }
 
+
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_InvalidOrderIdPrefixes_MY)
+{
+    CHECK_GLOBAL_FAILURE_FLAG();
+    std::vector<Order> invalidPrefixOrders
+    {
+        Order{"  OrdId", "", "", 0, "", ""},
+        Order{"ordid123", "", "", 0, "", ""},
+        Order{"ORDID123", "", "", 0, "", ""},
+        Order{"OrdId12A3", "", "", 0, "", ""},
+        Order{"OrdId 123", "", "", 0, "", ""},
+        Order{"OrdIdx123", "", "", 0, "", ""},
+        Order{"OrdId-123", "", "", 0, "", ""},
+        Order{"OrdId123a", "", "", 0, "", ""},
+        Order{"OrdId#123", "", "", 0, "", ""},
+        Order{"Ord Id123", "", "", 0, "", ""},
+        Order{"OrdId123 ", "", "", 0, "", ""},
+        Order{" OrdId123", "", "", 0, "", ""},
+        Order{"OrdId12.3", "", "", 0, "", ""},
+        Order{"OrdId+123", "", "", 0, "", ""},
+    };
+
+    constexpr auto expectedError{"Invalid order : Expected order ID format \"OrdId123\""};
+    for (const auto& order : invalidPrefixOrders)
+    {
+        ASSERT_THROW(cache.addOrder(order), std::invalid_argument);
+
+        try
+        {
+            cache.addOrder(order);
+        }
+        catch (const std::invalid_argument& e)
+        {
+            std::string actualError{e.what()};
+            ASSERT_EQ(expectedError, actualError);
+        }
+    }
+
+    // Verify that no order was added to the cache
+    ASSERT_EQ(cache.getAllOrders().size(), 0);
+}
+
+
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_ValidOrderIdPrefixes_MY)
+{
+    CHECK_GLOBAL_FAILURE_FLAG();
+
+
+    std::vector<Order> validPrefixOrders
+    {
+        Order{"OrdId5", "S", "Buy", 123, "U", "C"},
+        Order{"OrdId123", "S", "Buy", 123, "U", "C"},
+        Order{"OrdId000001", "S", "Buy", 123, "U", "C"},
+        Order{"OrdId9999999", "S", "Buy", 123, "U", "C"},
+    };
+
+    for (const auto& order : validPrefixOrders)
+    {
+        ASSERT_NO_THROW(cache.addOrder(order));
+    }
+
+    ASSERT_EQ(cache.getAllOrders().size(), validPrefixOrders.size());
+}
+
 // EdgeCases: Test that adding an order with an empty security ID
-TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptySecurityId) {
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptySecurityId)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Create an order with an empty security ID
     Order orderWithEmptySecId{"OrdId1", "", "Buy", 500, "User1", "Company1"};
 
     // Attempt to add the order
-    try {
-      cache.addOrder(orderWithEmptySecId);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.addOrder(orderWithEmptySecId);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that no order was added to the cache
@@ -416,17 +572,21 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptySecurityId) {
 }
 
 // EdgeCases: Test that adding an order with an empty user ID
-TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyUserId) {
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyUserId)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Create an order with an empty user ID
     Order orderWithEmptyUser{"OrdId1", "SecId1", "Buy", 500, "", "Company1"};
 
     // Attempt to add the order
-    try {
-      cache.addOrder(orderWithEmptyUser);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.addOrder(orderWithEmptyUser);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that no order was added to the cache
@@ -434,17 +594,21 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyUserId) {
 }
 
 // EdgeCases: Test that adding an order with an empty company name
-TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyCompany) {
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyCompany)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Create an order with an empty company name
     Order orderWithEmptyCompany{"OrdId1", "SecId1", "Buy", 500, "User1", ""};
 
     // Attempt to add the order
-    try {
-      cache.addOrder(orderWithEmptyCompany);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.addOrder(orderWithEmptyCompany);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that no order was added to the cache
@@ -453,17 +617,21 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptyCompany) {
 }
 
 // EdgeCases: Test that adding an order with an empty side
-TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptySide) {
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptySide)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Create an order with an empty side
     Order orderWithEmptySide{"OrdId1", "SecId1", "", 500, "User1", "Company1"};
 
     // Attempt to add the order
-    try {
-      cache.addOrder(orderWithEmptySide);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.addOrder(orderWithEmptySide);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that no order was added to the cache
@@ -471,17 +639,21 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_EmptySide) {
 }
 
 // EdgeCases: Test that adding an order with an invalid side
-TEST_F(OrderCacheTest, EdgeCases_AddOrder_InvalidSide) {
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_InvalidSide)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Create an order with an invalid side
     Order orderWithInvalidSide{"OrdId1", "SecId1", "Hold", 500, "User1", "Company1"};
 
     // Attempt to add the order
-    try {
-      cache.addOrder(orderWithInvalidSide);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.addOrder(orderWithInvalidSide);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that no order was added to the cache
@@ -489,16 +661,20 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_InvalidSide) {
 }
 
 // EdgeCases: Test that adding order with zero quantity
-TEST_F(OrderCacheTest, EdgeCases_AddOrder_ZeroQuantity) {
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_ZeroQuantity)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     Order zeroQuantityOrder{"OrdId1", "SecId1", "Buy", 0, "User1", "Company1"};
 
     // Attempt to add the order
-    try {
-      cache.addOrder(zeroQuantityOrder);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.addOrder(zeroQuantityOrder);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Nothing should change in the cache
@@ -506,7 +682,8 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_ZeroQuantity) {
 }
 
 // EdgeCases: Test that attempting to replace an existing order
-TEST_F(OrderCacheTest, EdgeCases_AddOrder_ReplaceExistingOrder) {
+TEST_F(OrderCacheTest, EdgeCases_AddOrder_ReplaceExistingOrder)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add the original order
@@ -521,10 +698,13 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_ReplaceExistingOrder) {
     Order replacementOrder{"OrdId1", "SecId2", "Sell", 1000, "User2", "Company2"};
 
     // Attempt to replace the order
-    try {
-      cache.addOrder(replacementOrder);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.addOrder(replacementOrder);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify the original order remains unchanged
@@ -539,17 +719,21 @@ TEST_F(OrderCacheTest, EdgeCases_AddOrder_ReplaceExistingOrder) {
 }
 
 // EdgeCases: Test that canceling an order with an empty order ID
-TEST_F(OrderCacheTest, EdgeCases_CancelOrder_EmptyOrderId) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrder_EmptyOrderId)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add a valid order to the cache
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 500, "User1", "Company1"});
 
     // Attempt to cancel an order with an empty order ID
-    try {
-      cache.cancelOrder("");
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.cancelOrder("");
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that the original order is still in the cache
@@ -557,13 +741,17 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrder_EmptyOrderId) {
 }
 
 // EdgeCases: Test that canceling a non-existent order
-TEST_F(OrderCacheTest, EdgeCases_CancelOrder_NonexistentOrder) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrder_NonexistentOrder)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
-    try {
-      cache.cancelOrder("OrdId1");
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.cancelOrder("OrdId1");
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Assuming getAllOrders() returns all current orders, the size should be 0 for an empty cache.
@@ -571,7 +759,8 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrder_NonexistentOrder) {
 }
 
 // EdgeCases: Canceling all orders for a user and then adding new orders for that user
-TEST_F(OrderCacheTest, EdgeCases_CancelOrder_CancelThenAddNewOrdersForSameUserShouldSucceed) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrder_CancelThenAddNewOrdersForSameUserShouldSucceed)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add multiple orders for User1
@@ -600,8 +789,10 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrder_CancelThenAddNewOrdersForSameUserSh
 
     // Count orders for User1
     int user1OrderCount = 0;
-    for (const auto& order : orders) {
-        if (order.user() == "User1") {
+    for (const auto& order : orders)
+    {
+        if (order.user() == "User1")
+        {
             user1OrderCount++;
         }
     }
@@ -609,17 +800,21 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrder_CancelThenAddNewOrdersForSameUserSh
 }
 
 // EdgeCases: Test that canceling orders for a user with an empty user ID
-TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_EmptyUser) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_EmptyUser)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add a valid order to the cache
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 500, "User1", "Company1"});
 
     // Attempt to cancel orders for an empty user ID
-    try {
-      cache.cancelOrdersForUser("");
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.cancelOrdersForUser("");
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that the original order is still in the cache
@@ -628,17 +823,21 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_EmptyUser) {
 }
 
 // EdgeCases: Test that canceling orders for a user without orders
-TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_NoOrdersFound) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_NoOrdersFound)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add a valid order to the cache
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 500, "User1", "Company1"});
 
     // Attempt to cancel orders for a user without orders
-    try {
-      cache.cancelOrdersForUser("User2");
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.cancelOrdersForUser("User2");
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that the original order is still in the cache
@@ -647,7 +846,8 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_NoOrdersFound) {
 }
 
 // EdgeCases: Canceling orders for a user who has orders across multiple securities
-TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_AcrossMultipleSecuritiesShouldRemoveAll) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_AcrossMultipleSecuritiesShouldRemoveAll)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add multiple orders for User1 across different securities
@@ -666,7 +866,8 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_AcrossMultipleSecuritiesSho
     std::vector<Order> orders = cache.getAllOrders();
     ASSERT_EQ(orders.size(), 2);
 
-    for (const auto& order : orders) {
+    for (const auto& order : orders)
+    {
         ASSERT_NE(order.user(), "User1");
     }
 
@@ -677,17 +878,21 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForUser_AcrossMultipleSecuritiesSho
 }
 
 // EdgeCases: Test that canceling orders with an empty security ID
-TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_EmptySecurityId) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_EmptySecurityId)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add a valid order to the cache
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 500, "User1", "Company1"});
 
     // Attempt to cancel orders with an empty security ID
-    try {
-      cache.cancelOrdersForSecIdWithMinimumQty("", 100);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.cancelOrdersForSecIdWithMinimumQty("", 100);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that the original order is still in the cache
@@ -695,17 +900,21 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_EmptySecurit
 }
 
 // EdgeCases: Test that canceling orders with a zero quantity
-TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_ZeroQuantity) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_ZeroQuantity)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add a valid order to the cache
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 500, "User1", "Company1"});
 
     // Attempt to cancel orders with an zero quantity
-    try {
-      cache.cancelOrdersForSecIdWithMinimumQty("SecId1", 0);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.cancelOrdersForSecIdWithMinimumQty("SecId1", 0);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that the original order is still in the cache
@@ -713,17 +922,21 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_ZeroQuantity
 }
 
 // EdgeCases: Test that canceling orders for a security with no orders
-TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_NonOrdersFound) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_NonOrdersFound)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add a valid order to the cache
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 500, "User1", "Company1"});
 
     // Attempt to cancel orders with an security that has no orders
-    try {
-      cache.cancelOrdersForSecIdWithMinimumQty("SecId2", 100);
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.cancelOrdersForSecIdWithMinimumQty("SecId2", 100);
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify that the original order is still in the cache
@@ -731,7 +944,8 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_NonOrdersFou
 }
 
 // EdgeCases: Canceling high-quantity orders for a security and verifying that low-quantity orders remain
-TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_LowQuantityOrdersShouldRemain) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_LowQuantityOrdersShouldRemain)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add orders with various quantities for SecId1
@@ -753,8 +967,10 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_LowQuantityO
 
     // Check that low-qty orders for SecId1 remain
     int secId1LowQtyCount = 0;
-    for (const auto& order : orders) {
-        if (order.securityId() == "SecId1") {
+    for (const auto& order : orders)
+    {
+        if (order.securityId() == "SecId1")
+        {
             ASSERT_LT(order.qty(), 500);
             secId1LowQtyCount++;
         }
@@ -763,8 +979,10 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_LowQuantityO
 
     // Verify orders with higher quantities were removed
     bool highQtyOrdersExist = false;
-    for (const auto& order : orders) {
-        if (order.securityId() == "SecId1" && order.qty() >= 500) {
+    for (const auto& order : orders)
+    {
+        if (order.securityId() == "SecId1" && order.qty() >= 500)
+        {
             highQtyOrdersExist = true;
             break;
         }
@@ -773,7 +991,8 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_LowQuantityO
 }
 
 // EdgeCases: Canceling orders by security ID and then adding new orders for that security
-TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_CancelThenAddNewOrdersForSameSecurityShouldSucceed) {
+TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_CancelThenAddNewOrdersForSameSecurityShouldSucceed)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add multiple orders for SecId1
@@ -792,11 +1011,14 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_CancelThenAd
     ASSERT_EQ(orders.size(), 2);
 
     // Add new orders for SecId1
-    try {
-      cache.addOrder(Order{"OrdId5", "SecId1", "Buy", 800, "User5", "Company5"});
-      cache.addOrder(Order{"OrdId6", "SecId1", "Sell", 600, "User6", "Company6"});
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.addOrder(Order{"OrdId5", "SecId1", "Buy", 800, "User5", "Company5"});
+        cache.addOrder(Order{"OrdId6", "SecId1", "Sell", 600, "User6", "Company6"});
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 
     // Verify the new orders were added correctly
@@ -805,8 +1027,10 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_CancelThenAd
 
     // Count orders for SecId1
     int secId1OrderCount = 0;
-    for (const auto& order : orders) {
-        if (order.securityId() == "SecId1") {
+    for (const auto& order : orders)
+    {
+        if (order.securityId() == "SecId1")
+        {
             secId1OrderCount++;
         }
     }
@@ -814,19 +1038,24 @@ TEST_F(OrderCacheTest, EdgeCases_CancelOrdersForSecIdWithMinimumQty_CancelThenAd
 }
 
 // EdgeCases: Test that getting matching size for an empty security ID
-TEST_F(OrderCacheTest, EdgeCases_GetMatchingSizeForSecurity_EmptySecurity) {
+TEST_F(OrderCacheTest, EdgeCases_GetMatchingSizeForSecurity_EmptySecurity)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Attempt to get matching size for an empty security ID
-    try {
-      cache.getMatchingSizeForSecurity("");
-    } catch (...) {
-      // Do nothing
+    try
+    {
+        cache.getMatchingSizeForSecurity("");
+    }
+    catch (...)
+    {
+        // Do nothing
     }
 }
 
 // EdgeCases: Test that getting matching size for security that does not exist returns zero
-TEST_F(OrderCacheTest, EdgeCases_GetMatchingSizeForSecurity_NonexistentSecurityReturnsZero) {
+TEST_F(OrderCacheTest, EdgeCases_GetMatchingSizeForSecurity_NonexistentSecurityReturnsZero)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     // Add a valid order to the cache
@@ -837,7 +1066,8 @@ TEST_F(OrderCacheTest, EdgeCases_GetMatchingSizeForSecurity_NonexistentSecurityR
 }
 
 // EdgeCases: Modifying the vector returned by getAllOrders() should not affect the cache.
-TEST_F(OrderCacheTest, EdgeCases_GetAllOrders_ResultNotModifiableExternally) {
+TEST_F(OrderCacheTest, EdgeCases_GetAllOrders_ResultNotModifiableExternally)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     cache.addOrder(Order{"OrdId1", "SecId1", "Buy", 100, "User1", "Company1"});
@@ -849,7 +1079,8 @@ TEST_F(OrderCacheTest, EdgeCases_GetAllOrders_ResultNotModifiableExternally) {
 }
 
 // Performance: Add and match 1,000 orders
-TEST_F(OrderCacheTest, Performance_SmallDataset_1KOrders) {
+TEST_F(OrderCacheTest, Performance_SmallDataset_1KOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     unsigned int NUM_ORDERS = 1000;
@@ -857,26 +1088,30 @@ TEST_F(OrderCacheTest, Performance_SmallDataset_1KOrders) {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add orders to the cache
-    for (int i = 0; i < orders.size(); i++) {
+    for (int i = 0; i < orders.size(); i++)
+    {
         cache.addOrder(orders[i]);
     }
 
     // Get matching size for every security and measure the time it takes
-    for (const auto& secId : secIds) {
+    for (const auto& secId : secIds)
+    {
         cache.getMatchingSizeForSecurity(secId);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-    double ncu = duration / benchmark_time;  // Calculate the NCU based on benchmark
+    double ncu = duration / benchmark_time; // Calculate the NCU based on benchmark
 
     // Display the result
-    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration << "ms)" << RESET_COLOR << std::endl;
+    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration <<
+        "ms)" << RESET_COLOR << std::endl;
     ASSERT_LE(ncu, 1500);
 }
 
 // Performance: Add and match 5,000 orders
-TEST_F(OrderCacheTest, Performance_SmallDataset_5KOrders) {
+TEST_F(OrderCacheTest, Performance_SmallDataset_5KOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     unsigned int NUM_ORDERS = 5000;
@@ -884,26 +1119,30 @@ TEST_F(OrderCacheTest, Performance_SmallDataset_5KOrders) {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add orders to the cache
-    for (int i = 0; i < orders.size(); i++) {
+    for (int i = 0; i < orders.size(); i++)
+    {
         cache.addOrder(orders[i]);
     }
 
     // Get matching size for every security and measure the time it takes
-    for (const auto& secId : secIds) {
+    for (const auto& secId : secIds)
+    {
         cache.getMatchingSizeForSecurity(secId);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-    double ncu = duration / benchmark_time;  // Calculate the NCU based on benchmark
+    double ncu = duration / benchmark_time; // Calculate the NCU based on benchmark
 
     // Display the result
-    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration << "ms)" << RESET_COLOR << std::endl;
+    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration <<
+        "ms)" << RESET_COLOR << std::endl;
     ASSERT_LE(ncu, 1500);
 }
 
 // Performance: Add and match 10,000 orders
-TEST_F(OrderCacheTest, Performance_MediumDataset_10KOrders) {
+TEST_F(OrderCacheTest, Performance_MediumDataset_10KOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     unsigned int NUM_ORDERS = 10000;
@@ -911,26 +1150,30 @@ TEST_F(OrderCacheTest, Performance_MediumDataset_10KOrders) {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add orders to the cache
-    for (int i = 0; i < orders.size(); i++) {
+    for (int i = 0; i < orders.size(); i++)
+    {
         cache.addOrder(orders[i]);
     }
 
     // Get matching size for every security and measure the time it takes
-    for (const auto& secId : secIds) {
+    for (const auto& secId : secIds)
+    {
         cache.getMatchingSizeForSecurity(secId);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-    double ncu = duration / benchmark_time;  // Calculate the NCU based on benchmark
+    double ncu = duration / benchmark_time; // Calculate the NCU based on benchmark
 
     // Display the result
-    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration << "ms)" << RESET_COLOR << std::endl;
+    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration <<
+        "ms)" << RESET_COLOR << std::endl;
     ASSERT_LE(ncu, 1500);
 }
 
 // Performance: Add and match 50,000 orders
-TEST_F(OrderCacheTest, Performance_MediumDataset_50KOrders) {
+TEST_F(OrderCacheTest, Performance_MediumDataset_50KOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     unsigned int NUM_ORDERS = 50000;
@@ -938,26 +1181,30 @@ TEST_F(OrderCacheTest, Performance_MediumDataset_50KOrders) {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add orders to the cache
-    for (int i = 0; i < orders.size(); i++) {
+    for (int i = 0; i < orders.size(); i++)
+    {
         cache.addOrder(orders[i]);
     }
 
     // Get matching size for every security and measure the time it takes
-    for (const auto& secId : secIds) {
+    for (const auto& secId : secIds)
+    {
         cache.getMatchingSizeForSecurity(secId);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-    double ncu = duration / benchmark_time;  // Calculate the NCU based on benchmark
+    double ncu = duration / benchmark_time; // Calculate the NCU based on benchmark
 
     // Display the result
-    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration << "ms)" << RESET_COLOR << std::endl;
+    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration <<
+        "ms)" << RESET_COLOR << std::endl;
     ASSERT_LE(ncu, 1500);
 }
 
 // Performance: Add and match 100,000 orders
-TEST_F(OrderCacheTest, Performance_LargeDataset_100KOrders) {
+TEST_F(OrderCacheTest, Performance_LargeDataset_100KOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     unsigned int NUM_ORDERS = 100000;
@@ -965,26 +1212,30 @@ TEST_F(OrderCacheTest, Performance_LargeDataset_100KOrders) {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add orders to the cache
-    for (int i = 0; i < orders.size(); i++) {
+    for (int i = 0; i < orders.size(); i++)
+    {
         cache.addOrder(orders[i]);
     }
 
     // Get matching size for every security and measure the time it takes
-    for (const auto& secId : secIds) {
+    for (const auto& secId : secIds)
+    {
         cache.getMatchingSizeForSecurity(secId);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-    double ncu = duration / benchmark_time;  // Calculate the NCU based on benchmark
+    double ncu = duration / benchmark_time; // Calculate the NCU based on benchmark
 
     // Display the result
-    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration << "ms)" << RESET_COLOR << std::endl;
+    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration <<
+        "ms)" << RESET_COLOR << std::endl;
     ASSERT_LE(ncu, 1500);
 }
 
 // Performance: Add and match 500,000 orders
-TEST_F(OrderCacheTest, Performance_LargeDataset_500KOrders) {
+TEST_F(OrderCacheTest, Performance_LargeDataset_500KOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     unsigned int NUM_ORDERS = 500000;
@@ -992,52 +1243,66 @@ TEST_F(OrderCacheTest, Performance_LargeDataset_500KOrders) {
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add orders to the cache
-    for (int i = 0; i < orders.size(); i++) {
+    for (int i = 0; i < orders.size(); i++)
+    {
         cache.addOrder(orders[i]);
     }
 
     // Get matching size for every security and measure the time it takes
-    for (const auto& secId : secIds) {
+    for (const auto& secId : secIds)
+    {
         cache.getMatchingSizeForSecurity(secId);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-    double ncu = duration / benchmark_time;  // Calculate the NCU based on benchmark
+    double ncu = duration / benchmark_time; // Calculate the NCU based on benchmark
 
     // Display the result
-    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration << "ms)" << RESET_COLOR << std::endl;
+    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration <<
+        "ms)" << RESET_COLOR << std::endl;
     ASSERT_LE(ncu, 1500);
 }
 
 // Performance: Add and match 1,000,000 orders
-TEST_F(OrderCacheTest, Performance_VeryLargeDataset_1MOrders) {
+TEST_F(OrderCacheTest, Performance_VeryLargeDataset_1MOrders)
+{
     CHECK_GLOBAL_FAILURE_FLAG();
 
     unsigned int NUM_ORDERS = 1000000;
     std::vector<Order> orders = generateOrders(NUM_ORDERS);
+
+
+    auto first{orders.front()};
+    auto last{orders.back()};
+
+
     auto start = std::chrono::high_resolution_clock::now();
 
     // Add orders to the cache
-    for (int i = 0; i < orders.size(); i++) {
+    for (int i = 0; i < orders.size(); i++)
+    {
         cache.addOrder(orders[i]);
     }
 
     // Get matching size for every security and measure the time it takes
-    for (const auto& secId : secIds) {
+    for (const auto& secId : secIds)
+    {
         cache.getMatchingSizeForSecurity(secId);
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-    double ncu = duration / benchmark_time;  // Calculate the NCU based on benchmark
+    double ncu = duration / benchmark_time; // Calculate the NCU based on benchmark
 
     // Display the result
-    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration << "ms)" << RESET_COLOR << std::endl;
+    std::cout << BLUE_COLOR << "[     INFO ] Matched " << NUM_ORDERS << " orders in " << ncu << " NCUs (" << duration <<
+        "ms)" << RESET_COLOR << std::endl;
     ASSERT_LE(ncu, 1500);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv)
+{
     ::testing::InitGoogleTest(&argc, argv);
 
     // Custom failure listener

@@ -1,16 +1,17 @@
 # Order Cache Testing Guide
 
 ## Table of Contents
+
 - [Overview](#overview)
 - [Performance Metrics](#performance-metrics)
 - [Prerequisites](#prerequisites)
 - [Environment Setup](#environment-setup)
-  - [Windows](#windows)
-  - [Linux](#linux)
-  - [macOS](#macos)
+    - [Windows](#windows)
+    - [Linux](#linux)
+    - [macOS](#macos)
 - [Building the Tests](#building-the-tests)
-  - [Using Command Line](#using-command-line)
-  - [Using CMake](#using-cmake)
+    - [Using Command Line](#using-command-line)
+    - [Using CMake](#using-cmake)
 - [Running the Tests](#running-the-tests)
 - [Understanding Test Results](#understanding-test-results)
 - [Test Categories](#test-categories)
@@ -19,11 +20,14 @@
 
 ## Overview
 
-This document provides instructions for testing your OrderCache implementation. The test suite validates both functionality and performance using the Google Test framework. Your implementation must pass all tests to be considered correct.
+This document provides instructions for testing your OrderCache implementation. The test suite validates both
+functionality and performance using the Google Test framework. Your implementation must pass all tests to be considered
+correct.
 
 ## Performance Metrics
 
-Performance is measured in **Normalized Compute Units (NCUs)**, which provide a machine-independent way to measure execution time:
+Performance is measured in **Normalized Compute Units (NCUs)**, which provide a machine-independent way to measure
+execution time:
 
 - 1 NCU is defined as the time taken to compute the Fibonacci number of 30 using a recursive algorithm on your machine
 - All performance tests are measured relative to this baseline
@@ -47,10 +51,11 @@ To compile and run the tests, you need:
 
 1. Install Visual Studio 2019 or later with C++ development workload
 2. Use the built-in Google Test support:
-   - In Solution Explorer, right-click on your project
-   - Select "Manage NuGet Packages"
-   - Search for "Google Test" and install it
-   - Detailed instructions: [Google Test in Visual Studio](https://learn.microsoft.com/en-us/visualstudio/test/how-to-use-google-test-for-cpp?view=vs-2022)
+    - In Solution Explorer, right-click on your project
+    - Select "Manage NuGet Packages"
+    - Search for "Google Test" and install it
+    - Detailed
+      instructions: [Google Test in Visual Studio](https://learn.microsoft.com/en-us/visualstudio/test/how-to-use-google-test-for-cpp?view=vs-2022)
 
 #### Using MinGW/MSYS2
 
@@ -144,6 +149,7 @@ cmake --build .
 ```
 
 The different build types are ideal for different phases of development:
+
 - **Debug build**: Use during development for easier debugging
 - **Release build**: Use for performance testing (recommended for final testing)
 - **Default build**: Basic compilation without specific optimizations
@@ -180,6 +186,7 @@ The test output will display:
 - A summary of passed and failed tests
 
 Example output:
+
 ```
 [     INFO ] Test version: 1.4
 [     INFO ] 1 NCU = 128ms
@@ -199,56 +206,57 @@ Example output:
 The test suite contains several categories of tests:
 
 1. **Basic Operations**: Tests basic functionality of the OrderCache class
-   - Adding orders
-   - Canceling specific orders
-   - Canceling orders for a user
-   - Canceling orders for a security with minimum quantity
-   - Getting all orders
+    - Adding orders
+    - Canceling specific orders
+    - Canceling orders for a user
+    - Canceling orders for a security with minimum quantity
+    - Getting all orders
 
 2. **Matching Size**: Tests order matching logic
-   - Examples from the README
-   - Various matching scenarios
-   - Orders from same company not matching
+    - Examples from the README
+    - Various matching scenarios
+    - Orders from same company not matching
 
 3. **Edge Cases**: Tests handling of invalid inputs and edge cases
-   - Empty fields
-   - Zero quantities
-   - Invalid order sides
-   - Duplicate order IDs
+    - Empty fields
+    - Zero quantities
+    - Invalid order sides
+    - Duplicate order IDs
 
 4. **Performance**: Tests execution speed
-   - Tests with varying numbers of orders (1K to 1M)
-   - Must complete within the 1,500 NCU limit
+    - Tests with varying numbers of orders (1K to 1M)
+    - Must complete within the 1,500 NCU limit
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Google Test not found**
-   - Ensure Google Test is installed correctly
-   - Check library paths with `find /usr -name "libgtest*.a"` on Linux
-   - Use the `-I` and `-L` flags to specify include and library paths
+    - Ensure Google Test is installed correctly
+    - Check library paths with `find /usr -name "libgtest*.a"` on Linux
+    - Use the `-I` and `-L` flags to specify include and library paths
 
 2. **Compilation errors**
-   - Ensure you have C++17 support: `g++ --version`
-   - Check for missing header files or dependencies
-   - Make sure OrderCache.h and OrderCache.cpp are in the same directory
+    - Ensure you have C++17 support: `g++ --version`
+    - Check for missing header files or dependencies
+    - Make sure OrderCache.h and OrderCache.cpp are in the same directory
 
 3. **Test failures**
-   - Check output carefully for specific test failure reasons
-   - Look for assertion messages that identify the exact failure point
-   - Fix one failure at a time, starting with basic operations
+    - Check output carefully for specific test failure reasons
+    - Look for assertion messages that identify the exact failure point
+    - Fix one failure at a time, starting with basic operations
 
 4. **Performance test failures**
-   - Profile your code to identify bottlenecks
-   - Consider more efficient data structures
-   - Look for unnecessary copying or redundant calculations
+    - Profile your code to identify bottlenecks
+    - Consider more efficient data structures
+    - Look for unnecessary copying or redundant calculations
 
 ### Library Installation Issues
 
 If you encounter issues with Google Test installation:
 
 #### Linux (Alternative Method)
+
 ```bash
 # Clone Google Test repository
 git clone https://github.com/google/googletest.git
@@ -260,6 +268,7 @@ sudo make install
 ```
 
 #### Windows (Alternative Method)
+
 ```bash
 # Clone Google Test repository
 git clone https://github.com/google/googletest.git

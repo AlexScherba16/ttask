@@ -68,6 +68,7 @@ private:
     static constexpr size_t ORDER_IDS_VECTOR_CAPACITY{1'024};
 
     using OrderID = std::string;
+    using OrderIdIndex = uint64_t;
     using User = std::string;
     using SecurityID = std::string;
     using Company = std::string;
@@ -99,22 +100,23 @@ private:
     };
 
     order_cache::storage::OrderIndexedStorage m_orderStorage;
-    std::unordered_map<User, std::vector<OrderID>> m_userOrderIds;
-    std::unordered_map<SecurityID, std::vector<OrderID>> m_securityOrderIds;
+    std::unordered_map<User, std::vector<OrderIdIndex>> m_userOrderIds;
+    std::unordered_map<SecurityID, std::vector<OrderIdIndex>> m_securityOrderIds;
     std::unordered_map<SecurityID, SecuritySnapshot> m_securitySnapshots;
 
 
     void _updateSecuritySnapshots(const Order& order, SecuritySnapshotAction action);
+    void _cancelOrderByIndex(uint64_t index);
 
     [[nodiscard]] static inline std::optional<uint64_t> _idToIndex(std::string_view id);
     static inline void _addOrderToSnapshot(const Order& order, SecuritySnapshot& snapshot);
     static inline void _removeOrderFromSnapshot(const Order& order, SecuritySnapshot& snapshot);
 
     static inline void _addOrderId(
-        std::unordered_map<std::string, std::vector<OrderID>>& map,
-        const std::string& key, const std::string& id);
+        std::unordered_map<std::string, std::vector<uint64_t>>& map, const std::string& key,
+        uint64_t id);
 
     static inline void _removeOrderId(
-        std::unordered_map<std::string, std::vector<OrderID>>& map,
-        const std::string& key, const std::string& id);
+        std::unordered_map<std::string, std::vector<uint64_t>>& map, const std::string& key,
+        uint64_t id);
 };

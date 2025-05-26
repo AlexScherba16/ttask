@@ -39,8 +39,8 @@ void OrderCache::addOrder(Order order)
     const auto securityId{order.securityId()};
     const auto index{idValue.value()};
 
-    _addOrderId(m_userOrderIds, user, orderId);
-    _addOrderId(m_securityOrderIds, securityId, orderId);
+    _addOrderId(m_userOrderIds, user, index);
+    _addOrderId(m_securityOrderIds, securityId, index);
     _updateSecuritySnapshots(order, SecuritySnapshotAction::ADD_ORDER);
     m_orderStorage.addOrder(std::move(order), index);
 }
@@ -58,15 +58,7 @@ void OrderCache::cancelOrder(const std::string& orderId)
     {
         return;
     }
-
-    const auto& order{m_orderStorage.getOrder(index)};
-    const auto user{order.user()};
-    const auto securityId{order.securityId()};
-
-    _removeOrderId(m_userOrderIds, user, orderId);
-    _removeOrderId(m_securityOrderIds, securityId, orderId);
-    _updateSecuritySnapshots(order, SecuritySnapshotAction::REMOVE_ORDER);
-    m_orderStorage.cancelOrder(index);
+    _cancelOrderByIndex(index);
 }
 
 void OrderCache::cancelOrdersForUser(const std::string& user)
@@ -74,9 +66,13 @@ void OrderCache::cancelOrdersForUser(const std::string& user)
     if (auto userOrdersIt{m_userOrderIds.find(user)}; userOrdersIt != m_userOrderIds.end())
     {
         auto orderIds{userOrdersIt->second};
-        for (const auto& orderId : orderIds)
+        for (const auto index : orderIds)
         {
-            cancelOrder(orderId);
+            if (!m_orderStorage.hasOrder(index))
+            {
+                continue;
+            }
+            _cancelOrderByIndex(index);
         }
     }
 }
@@ -95,25 +91,13 @@ void OrderCache::cancelOrdersForSecIdWithMinimumQty(const std::string& securityI
     }
 
     auto orderIds{securityOrdersIt->second};
-    for (const auto& orderId : orderIds)
+    for (const auto index : orderIds)
     {
-        const auto idValue{_idToIndex(orderId)};
-        if (!idValue.has_value())
-        {
-            throw std::invalid_argument("Failed to parse order ID value due cancellation for security : " + orderId);
-        }
-
-        const auto index{idValue.value()};
-        if (!m_orderStorage.hasOrder(index))
+        if (!m_orderStorage.hasOrder(index) || m_orderStorage.getOrder(index).qty() < minQty)
         {
             continue;
         }
-
-        const auto& order{m_orderStorage.getOrder(index)};
-        if (order.qty() >= minQty)
-        {
-            cancelOrder(orderId);
-        }
+        _cancelOrderByIndex(index);
     }
 }
 
@@ -131,7 +115,7 @@ unsigned int OrderCache::getMatchingSizeForSecurity(const std::string& securityI
 
         // instead of iterating over unmatched buy/sell per company, we are proceeding to the maximum volume (V)
         // company-leader for current security
-        const auto V{static_cast<int64_t>(snapshot.maxVolumes.empty() ? 0 : snapshot.maxVolumes.front())};
+        const auto V{static_cast<int64_t>(snapshot.maxVolumes.empty() ? 0 : snapshot.maxVolumes.back())};
         const auto exBuy{std::max(static_cast<int64_t>(0), V - S)};
         const auto exSell{std::max(static_cast<int64_t>(0), V - B)};
 
@@ -152,10 +136,16 @@ std::optional<uint64_t> OrderCache::_idToIndex(std::string_view id)
     constexpr auto prefixLen{ORDER_ID_PREFIX.size()};
 
     // ID less than expected prefix
-    if (id.size() <= prefixLen) { return std::nullopt; }
+    if (id.size() <= prefixLen)
+    {
+        return std::nullopt;
+    }
 
     // expected ID prefix is right at the very beginning of the string
-    if (id.compare(0, prefixLen, ORDER_ID_PREFIX) != 0) { return std::nullopt; }
+    if (id.compare(0, prefixLen, ORDER_ID_PREFIX) != 0)
+    {
+        return std::nullopt;
+    }
 
     // retrieve digital part of ID
     std::string_view numPart = id.substr(prefixLen);
@@ -164,10 +154,23 @@ std::optional<uint64_t> OrderCache::_idToIndex(std::string_view id)
     auto [_, ec] = std::from_chars(numPart.data(),
                                    numPart.data() + numPart.size(),
                                    value);
-
-    if (ec != std::errc{}) { return std::nullopt; }
-
+    if (ec != std::errc{})
+    {
+        return std::nullopt;
+    }
     return value;
+}
+
+void OrderCache::_cancelOrderByIndex(uint64_t index)
+{
+    const auto& order{m_orderStorage.getOrder(index)};
+    const auto user{order.user()};
+    const auto securityId{order.securityId()};
+
+    _removeOrderId(m_userOrderIds, user, index);
+    _removeOrderId(m_securityOrderIds, securityId, index);
+    _updateSecuritySnapshots(order, SecuritySnapshotAction::REMOVE_ORDER);
+    m_orderStorage.cancelOrder(index);
 }
 
 void OrderCache::_updateSecuritySnapshots(const Order& order, SecuritySnapshotAction action)
@@ -194,9 +197,10 @@ void OrderCache::_addOrderToSnapshot(const Order& order, SecuritySnapshot& snaps
     total += qty;
     volume += qty;
 
-    auto& maxHeap{snapshot.maxVolumes};
-    maxHeap.push_back(compVol.buy + compVol.sell);
-    std::make_heap(maxHeap.begin(), maxHeap.end());
+    const auto insertVolume{compVol.buy + compVol.sell};
+    snapshot.maxVolumes.insert(std::lower_bound(snapshot.maxVolumes.begin(),
+                                                snapshot.maxVolumes.end(), insertVolume),
+                               insertVolume);
 }
 
 void OrderCache::_removeOrderFromSnapshot(const Order& order, SecuritySnapshot& snapshot)
@@ -213,20 +217,20 @@ void OrderCache::_removeOrderFromSnapshot(const Order& order, SecuritySnapshot& 
     total -= qty;
     volume -= qty;
 
-
-    auto& maxHeap{snapshot.maxVolumes};
-    maxHeap.erase(std::remove_if(maxHeap.begin(), maxHeap.end(),
-                                 [&](const auto vol) { return vol == removeCompanyVolume; }), maxHeap.end());
-    std::make_heap(maxHeap.begin(), maxHeap.end());
+    auto removeIt{std::lower_bound(snapshot.maxVolumes.begin(), snapshot.maxVolumes.end(), removeCompanyVolume)};
+    if (removeIt != snapshot.maxVolumes.end() && *removeIt == removeCompanyVolume)
+    {
+        snapshot.maxVolumes.erase(removeIt);
+    }
 }
 
-void OrderCache::_addOrderId(std::unordered_map<std::string, std::vector<OrderID>>& map, const std::string& key,
-                             const std::string& id)
+void OrderCache::_addOrderId(std::unordered_map<std::string, std::vector<uint64_t>>& map, const std::string& key,
+                             const uint64_t id)
 {
     auto mapIt{map.find(key)};
     if (mapIt == map.end())
     {
-        std::vector<OrderID> orderIds{id};
+        std::vector<uint64_t> orderIds{id};
         orderIds.reserve(ORDER_IDS_VECTOR_CAPACITY);
         map.emplace_hint(mapIt, key, std::move(orderIds));
     }
@@ -236,8 +240,8 @@ void OrderCache::_addOrderId(std::unordered_map<std::string, std::vector<OrderID
     }
 }
 
-void OrderCache::_removeOrderId(std::unordered_map<std::string, std::vector<OrderID>>& map, const std::string& key,
-                                const std::string& id)
+void OrderCache::_removeOrderId(std::unordered_map<std::string, std::vector<uint64_t>>& map, const std::string& key,
+                                uint64_t id)
 {
     if (auto mapIt{map.find(key)}; mapIt != map.end())
     {

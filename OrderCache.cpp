@@ -131,7 +131,7 @@ unsigned int OrderCache::getMatchingSizeForSecurity(const std::string& securityI
 
         // instead of iterating over unmatched buy/sell per company, we are proceeding to the maximum volume (V)
         // company-leader for current security
-        const auto V{static_cast<int64_t>(snapshot.maxVolumes.empty() ? 0 : *snapshot.maxVolumes.rbegin())};
+        const auto V{static_cast<int64_t>(snapshot.maxVolumes.empty() ? 0 : snapshot.maxVolumes.front())};
         const auto exBuy{std::max(static_cast<int64_t>(0), V - S)};
         const auto exSell{std::max(static_cast<int64_t>(0), V - B)};
 
@@ -194,7 +194,9 @@ void OrderCache::_addOrderToSnapshot(const Order& order, SecuritySnapshot& snaps
     total += qty;
     volume += qty;
 
-    snapshot.maxVolumes.emplace(compVol.buy + compVol.sell);
+    auto& maxHeap{snapshot.maxVolumes};
+    maxHeap.push_back(compVol.buy + compVol.sell);
+    std::make_heap(maxHeap.begin(), maxHeap.end());
 }
 
 void OrderCache::_removeOrderFromSnapshot(const Order& order, SecuritySnapshot& snapshot)
@@ -211,7 +213,11 @@ void OrderCache::_removeOrderFromSnapshot(const Order& order, SecuritySnapshot& 
     total -= qty;
     volume -= qty;
 
-    snapshot.maxVolumes.erase(removeCompanyVolume);
+
+    auto& maxHeap{snapshot.maxVolumes};
+    maxHeap.erase(std::remove_if(maxHeap.begin(), maxHeap.end(),
+                                 [&](const auto vol) { return vol == removeCompanyVolume; }), maxHeap.end());
+    std::make_heap(maxHeap.begin(), maxHeap.end());
 }
 
 void OrderCache::_addOrderId(std::unordered_map<std::string, std::vector<OrderID>>& map, const std::string& key,

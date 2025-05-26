@@ -3,7 +3,6 @@
 #include "Order.h"
 #include "OrderIndexedStorage.h"
 
-#include <set>
 #include <cstdint>
 #include <optional>
 #include <unordered_map>
@@ -83,11 +82,12 @@ private:
     {
         uint64_t totalBuy{0};
         uint64_t totalSell{0};
-        std::multiset<uint64_t> maxVolumes;
+        std::vector<uint64_t> maxVolumes;
         std::unordered_map<Company, CompanyOrderVolume> companyVolumes;
 
         SecuritySnapshot()
         {
+            maxVolumes.reserve(COMPANY_ORDER_VOLUMES_MAP_CAPACITY);
             companyVolumes.reserve(COMPANY_ORDER_VOLUMES_MAP_CAPACITY);
         }
     };
